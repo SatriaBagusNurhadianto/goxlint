@@ -1,4 +1,4 @@
-// Package engine runs goose rules over parsed files.
+// Package engine runs goxlint rules over parsed files.
 package engine
 
 import (
@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/tools/go/ast/inspector"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 // Severity is how a configured rule's diagnostics are treated.
@@ -39,7 +39,7 @@ func (s Severity) String() string {
 type ConfiguredRule struct {
 	ID       string // "<plugin>/<rule>"
 	Plugin   string
-	Rule     *goose.Rule
+	Rule     *goxlint.Rule
 	Severity Severity
 	Options  json.RawMessage
 }
@@ -65,7 +65,7 @@ type LintOptions struct {
 
 // Fix is a resolved fix with byte-offset edits.
 type Fix struct {
-	Kind    goose.FixKind
+	Kind    goxlint.FixKind
 	Message string
 	Edits   []Edit
 }
@@ -134,10 +134,10 @@ func lintFile(f File, rules []ConfiguredRule, opts LintOptions) ([]Diagnostic, L
 		if cr.Rule.Meta.NeedsTypes {
 			pkg, info = f.Pkg, f.Info
 		}
-		report := func(d goose.Diagnostic) {
+		report := func(d goxlint.Diagnostic) {
 			diags = append(diags, resolve(f, tokFile, cr, d))
 		}
-		ctx := goose.NewContext(cr.Rule, cr.ID, f.Fset, f.AST, f.Filename, f.Source, pkg, info, cr.Options, &stack, report)
+		ctx := goxlint.NewContext(cr.Rule, cr.ID, f.Fset, f.AST, f.Filename, f.Source, pkg, info, cr.Options, &stack, report)
 		visitor, err := create(cr, ctx)
 		if err != nil {
 			diags = append(diags, internalError(f, cr, err))
@@ -155,7 +155,7 @@ func lintFile(f File, rules []ConfiguredRule, opts LintOptions) ([]Diagnostic, L
 			m[h.NodeType] = append(m[h.NodeType], handler{rule: cr, fn: h.Fn})
 			if !seen[h.NodeType] {
 				seen[h.NodeType] = true
-				// SAFETY: NodeType is a concrete type from goose.On[N ast.Node], so it implements ast.Node.
+				// SAFETY: NodeType is a concrete type from goxlint.On[N ast.Node], so it implements ast.Node.
 				filter = append(filter, reflect.Zero(h.NodeType).Interface().(ast.Node))
 			}
 		}
@@ -206,7 +206,7 @@ type ifaceHandler struct {
 	exit  bool
 }
 
-func create(cr *ConfiguredRule, ctx *goose.Context) (v goose.Visitor, err error) {
+func create(cr *ConfiguredRule, ctx *goxlint.Context) (v goxlint.Visitor, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic in Create: %v", r)
@@ -215,7 +215,7 @@ func create(cr *ConfiguredRule, ctx *goose.Context) (v goose.Visitor, err error)
 	return cr.Rule.Create(ctx), nil
 }
 
-func resolve(f File, tf *token.File, cr *ConfiguredRule, d goose.Diagnostic) Diagnostic {
+func resolve(f File, tf *token.File, cr *ConfiguredRule, d goxlint.Diagnostic) Diagnostic {
 	pos, end := d.Pos, d.End
 	if d.Node != nil {
 		pos, end = d.Node.Pos(), d.Node.End()

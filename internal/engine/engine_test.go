@@ -7,17 +7,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 // identRule reports every identifier named "bad" and offers a fix renaming it.
-var identRule = &goose.Rule{
-	Meta: goose.Meta{Name: "ident", Fixable: goose.FixSafe, Messages: map[string]string{"bad": "bad ident"}},
-	Create: func(ctx *goose.Context) goose.Visitor {
-		return goose.Visit(goose.On(func(id *ast.Ident) {
+var identRule = &goxlint.Rule{
+	Meta: goxlint.Meta{Name: "ident", Fixable: goxlint.FixSafe, Messages: map[string]string{"bad": "bad ident"}},
+	Create: func(ctx *goxlint.Context) goxlint.Visitor {
+		return goxlint.Visit(goxlint.On(func(id *ast.Ident) {
 			if id.Name == "bad" {
-				ctx.Report(goose.Diagnostic{Node: id, MessageID: "bad", Fix: &goose.Fix{
-					Kind: goose.FixSafe, Edits: []goose.Edit{goose.ReplaceNode(id, "good")},
+				ctx.Report(goxlint.Diagnostic{Node: id, MessageID: "bad", Fix: &goxlint.Fix{
+					Kind: goxlint.FixSafe, Edits: []goxlint.Edit{goxlint.ReplaceNode(id, "good")},
 				}})
 			}
 		}))
@@ -25,25 +25,25 @@ var identRule = &goose.Rule{
 }
 
 // stmtRule counts statements through an interface-typed handler.
-var stmtRule = &goose.Rule{
-	Meta: goose.Meta{Name: "stmt", Messages: map[string]string{"stmt": "stmt"}},
-	Create: func(ctx *goose.Context) goose.Visitor {
-		return goose.Visit(goose.On(func(s ast.Stmt) {
+var stmtRule = &goxlint.Rule{
+	Meta: goxlint.Meta{Name: "stmt", Messages: map[string]string{"stmt": "stmt"}},
+	Create: func(ctx *goxlint.Context) goxlint.Visitor {
+		return goxlint.Visit(goxlint.On(func(s ast.Stmt) {
 			if _, ok := s.(*ast.ReturnStmt); ok {
-				ctx.Report(goose.Diagnostic{Node: s, MessageID: "stmt"})
+				ctx.Report(goxlint.Diagnostic{Node: s, MessageID: "stmt"})
 			}
 		}))
 	},
 }
 
-var panicRule = &goose.Rule{
-	Meta: goose.Meta{Name: "panics"},
-	Create: func(ctx *goose.Context) goose.Visitor {
-		return goose.Visit(goose.On(func(*ast.FuncDecl) { panic("boom") }))
+var panicRule = &goxlint.Rule{
+	Meta: goxlint.Meta{Name: "panics"},
+	Create: func(ctx *goxlint.Context) goxlint.Visitor {
+		return goxlint.Visit(goxlint.On(func(*ast.FuncDecl) { panic("boom") }))
 	},
 }
 
-func lintSource(t *testing.T, src string, rules ...*goose.Rule) ([]Diagnostic, []byte) {
+func lintSource(t *testing.T, src string, rules ...*goxlint.Rule) ([]Diagnostic, []byte) {
 	t.Helper()
 	fset := token.NewFileSet()
 	af, err := parser.ParseFile(fset, "x.go", src, parser.ParseComments)
@@ -60,9 +60,9 @@ func lintSource(t *testing.T, src string, rules ...*goose.Rule) ([]Diagnostic, [
 func TestSuppression(t *testing.T) {
 	src := `package p
 
-var bad = 1 //goose:ignore t/ident trailing
+var bad = 1 //goxlint:ignore t/ident trailing
 
-//goose:ignore t reason
+//goxlint:ignore t reason
 var _ = bad
 
 var _ = bad
@@ -72,7 +72,7 @@ var _ = bad
 		t.Fatalf("want one diagnostic on line 8, got %+v", diags)
 	}
 
-	diags, _ = lintSource(t, "//goose:ignore-file *\npackage p\n\nvar bad = 1\n", identRule)
+	diags, _ = lintSource(t, "//goxlint:ignore-file *\npackage p\n\nvar bad = 1\n", identRule)
 	if len(diags) != 0 {
 		t.Fatalf("file-wide ignore: got %+v", diags)
 	}
@@ -80,19 +80,19 @@ var _ = bad
 
 func TestApplyFixes(t *testing.T) {
 	diags, src := lintSource(t, "package p\n\nvar bad = 1\nvar _ = bad\n", identRule)
-	out, applied := ApplyFixes(src, diags, goose.FixSafe)
+	out, applied := ApplyFixes(src, diags, goxlint.FixSafe)
 	if len(applied) != 2 || string(out) != "package p\n\nvar good = 1\nvar _ = good\n" {
 		t.Fatalf("got %q (%d applied)", out, len(applied))
 	}
-	if _, applied := ApplyFixes(src, diags, goose.FixNone); len(applied) != 0 {
+	if _, applied := ApplyFixes(src, diags, goxlint.FixNone); len(applied) != 0 {
 		t.Fatal("FixNone applied fixes")
 	}
 
 	overlapping := []Diagnostic{
-		{Fix: &Fix{Kind: goose.FixSafe, Edits: []Edit{{Start: 0, End: 4, NewText: "AAAA"}}}},
-		{Fix: &Fix{Kind: goose.FixSafe, Edits: []Edit{{Start: 2, End: 6, NewText: "BBBB"}}}},
+		{Fix: &Fix{Kind: goxlint.FixSafe, Edits: []Edit{{Start: 0, End: 4, NewText: "AAAA"}}}},
+		{Fix: &Fix{Kind: goxlint.FixSafe, Edits: []Edit{{Start: 2, End: 6, NewText: "BBBB"}}}},
 	}
-	out, applied = ApplyFixes([]byte("0123456789"), overlapping, goose.FixSafe)
+	out, applied = ApplyFixes([]byte("0123456789"), overlapping, goxlint.FixSafe)
 	if string(out) != "AAAA456789" || len(applied) != 1 {
 		t.Fatalf("overlap: got %q (%d applied)", out, len(applied))
 	}
@@ -117,15 +117,15 @@ func TestInterfaceHandlersAndPanics(t *testing.T) {
 func TestInvalidFixPositions(t *testing.T) {
 	for _, kind := range []string{"missing", "before file", "after file", "reversed"} {
 		t.Run(kind, func(t *testing.T) {
-			rule := &goose.Rule{
-				Meta: goose.Meta{Name: "invalid-fix", Fixable: goose.FixSafe},
-				Create: func(ctx *goose.Context) goose.Visitor {
-					return goose.Visit(goose.On(func(id *ast.Ident) {
+			rule := &goxlint.Rule{
+				Meta: goxlint.Meta{Name: "invalid-fix", Fixable: goxlint.FixSafe},
+				Create: func(ctx *goxlint.Context) goxlint.Visitor {
+					return goxlint.Visit(goxlint.On(func(id *ast.Ident) {
 						if id.Name != "bad" {
 							return
 						}
 						tf := ctx.Fset.File(id.Pos())
-						edit := goose.ReplaceNode(id, "good")
+						edit := goxlint.ReplaceNode(id, "good")
 						switch kind {
 						case "missing":
 							edit.Pos, edit.End = token.NoPos, token.NoPos
@@ -136,8 +136,8 @@ func TestInvalidFixPositions(t *testing.T) {
 						case "reversed":
 							edit.Pos, edit.End = edit.End, edit.Pos
 						}
-						ctx.Report(goose.Diagnostic{Node: id, Message: "bad fix", Fix: &goose.Fix{
-							Kind: goose.FixSafe, Edits: []goose.Edit{edit},
+						ctx.Report(goxlint.Diagnostic{Node: id, Message: "bad fix", Fix: &goxlint.Fix{
+							Kind: goxlint.FixSafe, Edits: []goxlint.Edit{edit},
 						}})
 					}))
 				},
@@ -146,7 +146,7 @@ func TestInvalidFixPositions(t *testing.T) {
 			if len(diags) != 2 || !strings.Contains(diags[0].Message, "invalid fix edit") || diags[0].Fix != nil {
 				t.Fatalf("want internal error without a fix and a healthy rule diagnostic, got %+v", diags)
 			}
-			out, applied := ApplyFixes(src, diags, goose.FixSafe)
+			out, applied := ApplyFixes(src, diags, goxlint.FixSafe)
 			if string(out) != "package p\nvar good = 1\n" || len(applied) != 1 {
 				t.Fatalf("want only healthy rule's fix applied, got %q, %+v", out, applied)
 			}

@@ -1,17 +1,17 @@
 # Configuration
 
-Goose reads its configuration from a JSON file with the name `.gooserc.json`.
+goxlint reads its configuration from a JSON file with the name `.goxlintrc.json`.
 
 ## Find the file
 
-Goose starts in the current directory. It looks for `.gooserc.json` in that
-directory and then in each parent directory. Goose uses the first file that it
+goxlint starts in the current directory. It looks for `.goxlintrc.json` in that
+directory and then in each parent directory. goxlint uses the first file that it
 finds. To use a different file, give the `-c` flag.
 
 Paths in the file are relative to the directory that contains the file. If
 there is no file, paths are relative to the current directory.
 
-If Goose finds no file, it uses this configuration:
+If goxlint finds no file, it uses this configuration:
 
 ```json
 { "categories": { "correctness": "warn" } }
@@ -41,8 +41,8 @@ If Goose finds no file, it uses this configuration:
 }
 ```
 
-Goose does not accept unknown fields, unknown rule IDs, or unknown categories.
-If the file has an error, Goose shows the error and exits with `2`.
+goxlint does not accept unknown fields, unknown rule IDs, or unknown categories.
+If the file has an error, goxlint shows the error and exits with `2`.
 
 ## Fields
 
@@ -50,7 +50,7 @@ If the file has an error, Goose shows the error and exits with `2`.
 | --- | --- | --- |
 | `categories` | object | The severity of each category. |
 | `rules` | object | The severity and the options of each rule. |
-| `ignorePatterns` | array of strings | Files and directories that Goose does not lint. |
+| `ignorePatterns` | array of strings | Files and directories that goxlint does not lint. |
 | `overrides` | array of objects | Rule settings for files that agree with patterns. |
 | `reportUnusedSuppressions` | string | The severity of unused-suppression reports. The default is `warn`. |
 
@@ -88,14 +88,14 @@ The value has one of two forms:
 - An array with a severity and an options object: `["warn", { "max": 5 }]`.
 
 The rule defines its options. Read the documentation of the rule. If the
-options are not correct, Goose reports an `invalid options` diagnostic. A rule
+options are not correct, goxlint reports an `invalid options` diagnostic. A rule
 that obeys the API conventions then does not run on the file. For more information, read [Writing rules](writing-rules.md#options).
 
-To see all rule IDs, run `goose rules`.
+To see all rule IDs, run `goxlint rules`.
 
 ## ignorePatterns
 
-Goose does not lint files and directories that agree with these patterns.
+goxlint does not lint files and directories that agree with these patterns.
 Package rules do not get ignored files. In typed mode, the Go tool can still
 type-check an ignored file as part of its package.
 
@@ -113,7 +113,7 @@ The pattern syntax:
 - A pattern that ends with `/**` also agrees with the directory itself.
 - A leading `./` has no effect.
 
-Goose always skips these items. You do not need to ignore them:
+goxlint always skips these items. You do not need to ignore them:
 
 - Generated files. A generated file has a `// Code generated ... DO NOT EDIT.`
   comment.
@@ -129,9 +129,9 @@ An override changes rule settings for some files. Each override has two fields:
 | `files` | Patterns. The override applies to a file that agrees with one or more patterns. |
 | `rules` | Rule settings, in the same form as the top-level `rules` field. |
 
-Goose applies all overrides that agree with a file, in the order of the array.
+goxlint applies all overrides that agree with a file, in the order of the array.
 A later override replaces the setting of an earlier override for the same rule.
-An override setting replaces the severity and the options of the rule. Goose
+An override setting replaces the severity and the options of the rule. goxlint
 does not merge options.
 
 Overrides do not accept categories. Set each rule in an override.
@@ -147,22 +147,22 @@ Overrides do not accept categories. Set each rule in an override.
 
 ## reportUnusedSuppressions
 
-This field sets the severity of the `goose/unused-suppression` report. The
+This field sets the severity of the `goxlint/unused-suppression` report. The
 accepted values are the severities in the table above. The default is `warn`.
 The `--report-unused-suppressions` flag replaces this value for one run.
 
-This setting is not a rule. Do not add `goose/unused-suppression` to `rules`.
+This setting is not a rule. Do not add `goxlint/unused-suppression` to `rules`.
 For more information, read [Suppressions](suppressions.md).
 
 ## Typed mode and syntax mode
 
-Goose selects the load mode from the configuration. If one or more enabled
-rules have `NeedsTypes`, Goose uses typed mode. This includes rules that only an
-override enables. If no enabled rule needs types, Goose uses syntax mode. Syntax
+goxlint selects the load mode from the configuration. If one or more enabled
+rules have `NeedsTypes`, goxlint uses typed mode. This includes rules that only an
+override enables. If no enabled rule needs types, goxlint uses syntax mode. Syntax
 mode is much faster.
 
 The summary line of the `default` format shows the mode. For more information,
-read [How Goose works](how-goose-works.md).
+read [How goxlint works](how-goxlint-works.md).
 
 ## Command-line changes
 

@@ -8,17 +8,17 @@ import (
 
 // Suppression directives:
 //
-//	//goose:ignore <rules> [reason]       suppresses its own line and the next line
-//	//goose:ignore-file <rules> [reason]  suppresses the whole file
+//	//goxlint:ignore <rules> [reason]       suppresses its own line and the next line
+//	//goxlint:ignore-file <rules> [reason]  suppresses the whole file
 //
 // <rules> is a comma-separated list of "plugin/rule", "plugin", or "*".
 const (
-	ignoreDirective     = "//goose:ignore "
-	ignoreFileDirective = "//goose:ignore-file "
+	ignoreDirective     = "//goxlint:ignore "
+	ignoreFileDirective = "//goxlint:ignore-file "
 )
 
 // UnusedSuppressionRuleID identifies engine findings for unused suppression targets.
-const UnusedSuppressionRuleID = "goose/unused-suppression"
+const UnusedSuppressionRuleID = "goxlint/unused-suppression"
 
 type suppression struct {
 	line  int // 0 for file-wide

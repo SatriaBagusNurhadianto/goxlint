@@ -1,26 +1,26 @@
 # Command line
 
 Your linter gets its command line from `cli.Main`. This document uses the name
-`goose` for the linter command. Use the name of your command.
+`goxlint` for the linter command. Use the name of your command.
 
 ## Commands
 
 | Command | Action |
 | --- | --- |
-| `goose [flags] [patterns]` | Lint the packages or files that the patterns select. |
-| `goose rules` | Show a table of all registered rules. |
-| `goose init` | Write `.gooserc.json` in the current directory. |
-| `goose -h` | Show the usage text. |
+| `goxlint [flags] [patterns]` | Lint the packages or files that the patterns select. |
+| `goxlint rules` | Show a table of all registered rules. |
+| `goxlint init` | Write `.goxlintrc.json` in the current directory. |
+| `goxlint -h` | Show the usage text. |
 
 ### Lint
 
 ```sh
-goose ./...
-goose ./internal/... ./cmd/server
-goose main.go handler.go
+goxlint ./...
+goxlint ./internal/... ./cmd/server
+goxlint main.go handler.go
 ```
 
-If you do not give a pattern, Goose uses `./...`. You can put flags before or
+If you do not give a pattern, goxlint uses `./...`. You can put flags before or
 after the patterns.
 
 | Pattern | Selects |
@@ -28,11 +28,11 @@ after the patterns.
 | `./...` | All packages in the current directory and below it. |
 | `dir/...` | All packages in `dir` and below it. |
 | `dir` | The package in `dir` only. |
-| `file.go` | One file. In typed mode, Goose loads the package that contains the file. |
+| `file.go` | One file. In typed mode, goxlint loads the package that contains the file. |
 
 ### rules
 
-`goose rules` shows one line for each rule:
+`goxlint rules` shows one line for each rule:
 
 | Column | Contents |
 | --- | --- |
@@ -45,7 +45,7 @@ after the patterns.
 
 ### init
 
-`goose init` writes `.gooserc.json` in the current directory. The file enables
+`goxlint init` writes `.goxlintrc.json` in the current directory. The file enables
 the `correctness` category with `warn`, and sets each registered rule to
 `error`. If the file exists, the command does not change it and exits with `2`.
 
@@ -55,7 +55,7 @@ the `correctness` category with `warn`, and sets each registered rule to
 
 | Flag | Value | Action |
 | --- | --- | --- |
-| `-c` | path | Use this configuration file. If you do not use `-c`, Goose finds the nearest `.gooserc.json`. |
+| `-c` | path | Use this configuration file. If you do not use `-c`, goxlint finds the nearest `.goxlintrc.json`. |
 | `-D` | rule or category | Set the severity to `error`. You can use the flag more than one time. |
 | `-W` | rule or category | Set the severity to `warn`. You can use the flag more than one time. |
 | `-A` | rule or category | Set the severity to `off`. You can use the flag more than one time. |
@@ -63,7 +63,7 @@ the `correctness` category with `warn`, and sets each registered rule to
 | `--tags` | list | Use these build tags in typed mode, for example `--tags integration,e2e`. |
 
 The `-D`, `-W`, and `-A` flags apply in the order that you give them. They
-change the configuration before Goose resolves it. A later flag for the same
+change the configuration before goxlint resolves it. A later flag for the same
 rule or category replaces an earlier flag. A rule setting is more specific than
 a category setting. Thus `-A style -D acme/no-foo` enables `acme/no-foo` also
 when it is a style rule.
@@ -86,7 +86,7 @@ For more information, read [Fixes](fixes.md).
 | Flag | Value | Action |
 | --- | --- | --- |
 | `--format` | `default`, `unix`, `json`, `github` | Select the output format. The default is `default`. |
-| `--quiet` | | Do not show warnings. Goose still counts them. |
+| `--quiet` | | Do not show warnings. goxlint still counts them. |
 | `--deny-warnings` | | Exit with `1` when there are warnings. |
 | `--max-warnings` | number | Exit with `1` when the number of warnings is more than this number. |
 
@@ -111,7 +111,7 @@ Found 1 warning and 0 errors.
 Finished in 85ms on 12 files with 4 rules using 8 threads (syntax mode).
 ```
 
-An error has the `×` symbol. A warning has the `⚠` symbol. Goose uses colors
+An error has the `×` symbol. A warning has the `⚠` symbol. goxlint uses colors
 only when the output is a terminal and the `NO_COLOR` environment variable is
 not set.
 
@@ -168,10 +168,10 @@ and column numbers start at 1. Columns count bytes.
 | `2` | A usage error, a configuration error, or a load error. |
 
 A load error occurs when a file cannot be read or parsed, or when a package
-has type errors. Goose shows each load error on stderr with the prefix
-`goose: load:`. Goose still lints the packages that loaded correctly, and it
+has type errors. goxlint shows each load error on stderr with the prefix
+`goxlint: load:`. goxlint still lints the packages that loaded correctly, and it
 shows their diagnostics. For more information, read
-[How Goose works](how-goose-works.md#load-errors).
+[How goxlint works](how-goxlint-works.md#load-errors).
 
 ## Use in CI
 

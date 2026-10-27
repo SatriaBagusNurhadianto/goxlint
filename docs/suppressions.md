@@ -1,32 +1,32 @@
 # Suppressions
 
-A suppression comment stops Goose from reporting a rule at one location. The
-Goose engine processes suppressions. They work with all plugins.
+A suppression comment stops goxlint from reporting a rule at one location. The
+goxlint engine processes suppressions. They work with all plugins.
 
 ## Directives
 
 | Directive | Scope |
 | --- | --- |
-| `//goose:ignore <targets> [reason]` | The line of the comment and the next line. |
-| `//goose:ignore-file <targets> [reason]` | The full file. |
+| `//goxlint:ignore <targets> [reason]` | The line of the comment and the next line. |
+| `//goxlint:ignore-file <targets> [reason]` | The full file. |
 
 ```go
-//goose:ignore acme/no-println The CLI output must go to stdout.
+//goxlint:ignore acme/no-println The CLI output must go to stdout.
 fmt.Println(report)
 
-value := cache[key] //goose:ignore acme/no-map-lookup The key is always present.
+value := cache[key] //goxlint:ignore acme/no-map-lookup The key is always present.
 ```
 
 ```go
-//goose:ignore-file acme/no-println This file is a command-line program.
+//goxlint:ignore-file acme/no-println This file is a command-line program.
 package main
 ```
 
 ## Syntax
 
-- The directive must be a `//` line comment. Goose does not read `/* */`
+- The directive must be a `//` line comment. goxlint does not read `/* */`
   comments as directives.
-- Put one space after `//goose:ignore` or `//goose:ignore-file`.
+- Put one space after `//goxlint:ignore` or `//goxlint:ignore-file`.
 - The first field after the directive is a list of targets. Separate the
   targets with commas. Do not put spaces in the list.
 - The text after the list is the reason. The reason is optional, but always
@@ -41,21 +41,21 @@ package main
 | `*` | All rules. |
 
 ```go
-//goose:ignore acme/no-println,acme/max-params Generated adapter.
+//goxlint:ignore acme/no-println,acme/max-params Generated adapter.
 ```
 
 ## Scope of a line directive
 
-`//goose:ignore` applies to two physical lines: the line of the comment, and
+`//goxlint:ignore` applies to two physical lines: the line of the comment, and
 the line after it. A diagnostic agrees with the directive when its start
 position is on one of these lines.
 
 A blank line between the comment and the code stops the directive:
 
 ```go
-//goose:ignore acme/no-println The reason.
+//goxlint:ignore acme/no-println The reason.
 
-fmt.Println(x) // Goose reports this line.
+fmt.Println(x) // goxlint reports this line.
 ```
 
 For a statement on more than one line, put the directive directly above the
@@ -63,22 +63,22 @@ line where the diagnostic starts.
 
 ## Unused suppressions
 
-Goose reports a target that suppresses no diagnostic. The report has the rule
-ID `goose/unused-suppression` and points to the target in the comment.
+goxlint reports a target that suppresses no diagnostic. The report has the rule
+ID `goxlint/unused-suppression` and points to the target in the comment.
 
 ```go
-//goose:ignore acme/no-foo,acme/no-bar Existing exception.
+//goxlint:ignore acme/no-foo,acme/no-bar Existing exception.
 foo()
 ```
 
-If only `acme/no-foo` reports a diagnostic on `foo()`, Goose reports
+If only `acme/no-foo` reports a diagnostic on `foo()`, goxlint reports
 `acme/no-bar` as unused.
 
 These targets are unused:
 
 - A target for a rule that reported nothing on the lines.
 - A target with a spelling error, or a target for a rule that does not exist.
-- A target for a rule that is off for the file. Goose examines the rules that
+- A target for a rule that is off for the file. goxlint examines the rules that
   are enabled for each file, after overrides and command-line flags.
 - A redundant target. When two directives or two targets agree with the same
   diagnostic, the first directive in the file gets the credit. In that
@@ -88,7 +88,7 @@ One target can suppress more than one diagnostic.
 
 ### Set the severity
 
-The default severity is `warn`. Set it in `.gooserc.json`:
+The default severity is `warn`. Set it in `.goxlintrc.json`:
 
 ```json
 { "reportUnusedSuppressions": "error" }
@@ -97,29 +97,29 @@ The default severity is `warn`. Set it in `.gooserc.json`:
 Or set it for one run:
 
 ```sh
-goose --report-unused-suppressions=error ./...
-goose --report-unused-suppressions=off ./...
+goxlint --report-unused-suppressions=error ./...
+goxlint --report-unused-suppressions=off ./...
 ```
 
 The accepted values are `off`, `warn`, and `error`, and the aliases `allow` and
-`deny`. This setting is not a rule. Do not add `goose/unused-suppression` to
+`deny`. This setting is not a rule. Do not add `goxlint/unused-suppression` to
 `rules`, and do not give it to `-D`.
 
 The warning flags apply to these reports. `--deny-warnings` and
-`--max-warnings` can make the run fail. `--quiet` hides the warnings, but Goose
+`--max-warnings` can make the run fail. `--quiet` hides the warnings, but goxlint
 still counts them.
 
 ### Properties of unused-suppression reports
 
-- Goose adds the reports after it processes suppressions. Thus a suppression
+- goxlint adds the reports after it processes suppressions. Thus a suppression
   cannot hide an unused-suppression report.
 - The reports do not have fixes. Remove or correct the target yourself.
 - The reports appear in all output formats.
 
-### When Goose does not examine suppressions
+### When goxlint does not examine suppressions
 
 An absent diagnostic is not always evidence that a suppression is unused.
-Thus Goose does not report unused suppressions for a file in these conditions:
+Thus goxlint does not report unused suppressions for a file in these conditions:
 
 - The package of the file did not load correctly. In typed mode, this also
   applies when the package imports a package that did not load correctly.
@@ -130,7 +130,7 @@ Thus Goose does not report unused suppressions for a file in these conditions:
 
 ## Suppressions and package rules
 
-Goose processes suppressions after the file phase and the package phase. Thus
+goxlint processes suppressions after the file phase and the package phase. Thus
 a suppression can hide a diagnostic from a package rule. Put the directive on
 the line where the package rule reports.
 

@@ -1,6 +1,6 @@
 # Writing rules
 
-A rule is a `*goose.Rule` value. It has metadata and one or two callbacks:
+A rule is a `*goxlint.Rule` value. It has metadata and one or two callbacks:
 
 - `Create` runs one time for each file. It returns the node handlers for that
   file. This document describes file rules.
@@ -18,33 +18,33 @@ import (
 	"go/ast"
 	"strconv"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 // MaxParams limits the number of parameters of a function.
-var MaxParams = &goose.Rule{
-	Meta: goose.Meta{
+var MaxParams = &goxlint.Rule{
+	Meta: goxlint.Meta{
 		Name:        "max-params",
 		Description: "Limit the number of function parameters.",
-		Category:    goose.Pedantic,
+		Category:    goxlint.Pedantic,
 		Messages: map[string]string{
 			"tooMany": "`{{name}}` has {{count}} parameters. The maximum is {{max}}.",
 		},
 	},
-	Create: func(ctx *goose.Context) goose.Visitor {
+	Create: func(ctx *goxlint.Context) goxlint.Visitor {
 		opts := struct {
 			Max int `json:"max"`
 		}{Max: 4}
 		if !ctx.Options(&opts) {
 			return nil
 		}
-		return goose.Visit(
-			goose.On(func(fn *ast.FuncDecl) {
+		return goxlint.Visit(
+			goxlint.On(func(fn *ast.FuncDecl) {
 				if n := fn.Type.Params.NumFields(); n > opts.Max {
-					ctx.Report(goose.Diagnostic{
+					ctx.Report(goxlint.Diagnostic{
 						Node:      fn.Name,
 						MessageID: "tooMany",
-						Data: goose.Data{
+						Data: goxlint.Data{
 							"name":  fn.Name.Name,
 							"count": strconv.Itoa(n),
 							"max":   strconv.Itoa(opts.Max),
@@ -60,15 +60,15 @@ var MaxParams = &goose.Rule{
 
 ## Metadata
 
-`goose.Meta` describes the rule.
+`goxlint.Meta` describes the rule.
 
 | Field | Description |
 | --- | --- |
 | `Name` | The rule name without the plugin name, for example `max-params`. Use lowercase words with hyphens. |
-| `Description` | One line. `goose rules` shows it. |
-| `Category` | One of `goose.Correctness`, `goose.Suspicious`, `goose.Pedantic`, `goose.Style`, `goose.Restriction`, `goose.Nursery`. |
+| `Description` | One line. `goxlint rules` shows it. |
+| `Category` | One of `goxlint.Correctness`, `goxlint.Suspicious`, `goxlint.Pedantic`, `goxlint.Style`, `goxlint.Restriction`, `goxlint.Nursery`. |
 | `Messages` | Message templates. The key is a message ID. Read [Messages](#messages). |
-| `Fixable` | The most dangerous fix level that the rule can make. The default is `goose.FixNone`. Read [Fixes](fixes.md). |
+| `Fixable` | The most dangerous fix level that the rule can make. The default is `goxlint.FixNone`. Read [Fixes](fixes.md). |
 | `NeedsTypes` | Set to `true` when the rule uses type information. |
 
 The rule ID is `<plugin>/<name>`. Users write this ID in the configuration and
@@ -79,9 +79,9 @@ in suppression comments.
 A plugin is a named set of rules:
 
 ```go
-var Plugin = goose.Plugin{
+var Plugin = goxlint.Plugin{
 	Name:  "acme",
-	Rules: []*goose.Rule{MaxParams, NoPrintln},
+	Rules: []*goxlint.Rule{MaxParams, NoPrintln},
 }
 ```
 
@@ -89,39 +89,39 @@ Give the plugin to `cli.Main`. Each rule ID must be unique across all plugins.
 
 ## The visitor
 
-`Create` returns a `goose.Visitor`. Make it with `goose.Visit` and one or more
+`Create` returns a `goxlint.Visitor`. Make it with `goxlint.Visit` and one or more
 handlers:
 
-| Function | Goose calls the handler |
+| Function | goxlint calls the handler |
 | --- | --- |
-| `goose.On(func(n *ast.T) {...})` | Before the children of each node of type `*ast.T`. |
-| `goose.OnExit(func(n *ast.T) {...})` | After the children of each node of type `*ast.T`. |
+| `goxlint.On(func(n *ast.T) {...})` | Before the children of each node of type `*ast.T`. |
+| `goxlint.OnExit(func(n *ast.T) {...})` | After the children of each node of type `*ast.T`. |
 
 The type parameter selects the node type. You can register more than one
 handler for the same type.
 
 ```go
-return goose.Visit(
-	goose.On(func(fn *ast.FuncDecl) { depth++ }),
-	goose.OnExit(func(fn *ast.FuncDecl) { depth-- }),
-	goose.On(func(ret *ast.ReturnStmt) { /* use depth */ }),
+return goxlint.Visit(
+	goxlint.On(func(fn *ast.FuncDecl) { depth++ }),
+	goxlint.OnExit(func(fn *ast.FuncDecl) { depth-- }),
+	goxlint.On(func(ret *ast.ReturnStmt) { /* use depth */ }),
 )
 ```
 
-Goose walks each file one time for all rules. It calls only the handlers for
+goxlint walks each file one time for all rules. It calls only the handlers for
 the node types that the rules registered.
 
 ### Interface node types
 
 You can also register a handler for an interface type, for example `ast.Stmt`
-or `ast.Expr`. Goose then calls the handler for each node that implements the
+or `ast.Expr`. goxlint then calls the handler for each node that implements the
 interface.
 
 ```go
-goose.On(func(s ast.Stmt) { /* each statement */ })
+goxlint.On(func(s ast.Stmt) { /* each statement */ })
 ```
 
-**CAUTION:** An interface handler makes Goose visit every node of the file.
+**CAUTION:** An interface handler makes goxlint visit every node of the file.
 This is slower. Use concrete node types when possible.
 
 ### No handlers
@@ -138,12 +138,12 @@ if ctx.IsTestFile() {
 ### State
 
 `Create` runs one time for each file. Variables that you declare in `Create`
-are local to that file. Goose can lint different files at the same time. Thus,
+are local to that file. goxlint can lint different files at the same time. Thus,
 do not keep state in package-level variables.
 
 ## The context
 
-`Create` gets a `*goose.Context`. The context gives access to the file and
+`Create` gets a `*goxlint.Context`. The context gives access to the file and
 reports diagnostics.
 
 ### Fields
@@ -191,11 +191,11 @@ They ignore `//line` directives.
 
 ## Reports
 
-Call `ctx.Report` with a `goose.Diagnostic`:
+Call `ctx.Report` with a `goxlint.Diagnostic`:
 
 | Field | Description |
 | --- | --- |
-| `Node` | The node that has the problem. Goose uses its start and end positions. |
+| `Node` | The node that has the problem. goxlint uses its start and end positions. |
 | `Pos`, `End` | Positions. Use them instead of `Node` when the problem is not one node. |
 | `MessageID` | A key of `Meta.Messages`. |
 | `Message` | A message text. Use it instead of `MessageID`. |
@@ -204,12 +204,12 @@ Call `ctx.Report` with a `goose.Diagnostic`:
 | `Fix` | Optional. Read [Fixes](fixes.md). |
 
 The positions must be in the current file. The start must not be after the end.
-If `End` is not set, Goose uses `Pos`.
+If `End` is not set, goxlint uses `Pos`.
 
 ### Messages
 
 Write message templates in `Meta.Messages`. A template can contain
-placeholders with the form `{{key}}`. Goose replaces each placeholder with the
+placeholders with the form `{{key}}`. goxlint replaces each placeholder with the
 value from `Data`.
 
 ```go
@@ -232,7 +232,7 @@ can be a warning in one project and an error in a different project.
 
 ### Rule errors
 
-Goose stops a rule on a file and reports an internal error in these
+goxlint stops a rule on a file and reports an internal error in these
 conditions:
 
 - The rule calls `Report` with an unknown `MessageID`.
@@ -279,7 +279,7 @@ To validate values, report a diagnostic yourself:
 
 ```go
 if opts.Max < 1 {
-	ctx.Report(goose.Diagnostic{Pos: ctx.File.Package, Message: "invalid options: max must be at least 1"})
+	ctx.Report(goxlint.Diagnostic{Pos: ctx.File.Package, Message: "invalid options: max must be at least 1"})
 	return nil
 }
 ```
@@ -293,9 +293,9 @@ Set `NeedsTypes: true` to get type information. The context then has `Pkg` and
 values.
 
 ```go
-goose.On(func(call *ast.CallExpr) {
+goxlint.On(func(call *ast.CallExpr) {
 	if ctx.IsPkgFunc(call, "context", "TODO") {
-		ctx.Report(goose.Diagnostic{Node: call, MessageID: "todo"})
+		ctx.Report(goxlint.Diagnostic{Node: call, MessageID: "todo"})
 	}
 })
 ```
@@ -308,12 +308,12 @@ declaration can hide a package-level one.
 Typed mode loads and type-checks all packages. It is much slower than syntax
 mode. Do not set `NeedsTypes` when the syntax tree is sufficient.
 
-If type information is not available for a file, Goose does not run the rule on
+If type information is not available for a file, goxlint does not run the rule on
 that file. This can occur when you call the engine without types.
 
 ## Test files
 
-Goose lints `_test.go` files with the same rules as other files. Many rules
+goxlint lints `_test.go` files with the same rules as other files. Many rules
 must not apply to tests. Use `ctx.IsTestFile()`, and give users an option to
 change this:
 
@@ -343,7 +343,7 @@ Users can also turn rules off for test files with an override. Read
 
 ## Examples
 
-The [`examples/goose/plugins`](../examples/goose/plugins) directory has complete
+The [`examples/goxlint/plugins`](../examples/goxlint/plugins) directory has complete
 rules. These rules show:
 
 - Options with default values and `checkTests`.

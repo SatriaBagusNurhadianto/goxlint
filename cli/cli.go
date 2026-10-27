@@ -1,11 +1,11 @@
-// Package cli implements the goose command. Repositories that vendor their own
+// Package cli implements the goxlint command. Repositories that vendor their own
 // rules build a binary that registers them:
 //
 //	package main
 //
 //	import (
-//		"github.com/egoisutolabs/goose-lint/cli"
-//		"example.com/repo/tools/goose/antislop"
+//		"github.com/egoisutolabs/goxlint/cli"
+//		"example.com/repo/tools/goxlint/antislop"
 //	)
 //
 //	func main() { cli.Main(antislop.Plugin) }
@@ -26,20 +26,20 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/egoisutolabs/goose-lint/goose"
-	"github.com/egoisutolabs/goose-lint/internal/config"
-	"github.com/egoisutolabs/goose-lint/internal/engine"
-	"github.com/egoisutolabs/goose-lint/internal/output"
+	"github.com/egoisutolabs/goxlint"
+	"github.com/egoisutolabs/goxlint/internal/config"
+	"github.com/egoisutolabs/goxlint/internal/engine"
+	"github.com/egoisutolabs/goxlint/internal/output"
 )
 
-// Main runs goose with the given plugins and exits.
-func Main(plugins ...goose.Plugin) {
+// Main runs goxlint with the given plugins and exits.
+func Main(plugins ...goxlint.Plugin) {
 	os.Exit(Run(os.Args[1:], os.Stdout, os.Stderr, plugins...))
 }
 
-// Run runs goose and returns the exit code: 0 success, 1 lint failure,
+// Run runs goxlint and returns the exit code: 0 success, 1 lint failure,
 // 2 usage or operational error (including incomplete loading).
-func Run(args []string, stdout, stderr io.Writer, plugins ...goose.Plugin) int {
+func Run(args []string, stdout, stderr io.Writer, plugins ...goxlint.Plugin) int {
 	reg := config.NewRegistry(plugins...)
 	if len(args) > 0 {
 		switch args[0] {
@@ -51,7 +51,7 @@ func Run(args []string, stdout, stderr io.Writer, plugins ...goose.Plugin) int {
 	}
 	code, err := lint(args, stdout, stderr, reg)
 	if err != nil {
-		fmt.Fprintln(stderr, "goose:", err)
+		fmt.Fprintln(stderr, "goxlint:", err)
 		return 2
 	}
 	return code
@@ -69,7 +69,7 @@ func (f severityFlag) Set(v string) error {
 }
 
 func lint(args []string, stdout, stderr io.Writer, reg *config.Registry) (int, error) {
-	fs := flag.NewFlagSet("goose", flag.ContinueOnError)
+	fs := flag.NewFlagSet("goxlint", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var (
 		configPath   = fs.String("c", "", "path to config file (default: nearest "+config.FileName+")")
@@ -88,7 +88,7 @@ func lint(args []string, stdout, stderr io.Writer, reg *config.Registry) (int, e
 	fs.Var(severityFlag{"warn", &overrides}, "W", "warn on a rule or category (repeatable)")
 	fs.Var(severityFlag{"off", &overrides}, "A", "allow (disable) a rule or category (repeatable)")
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "usage: goose [flags] [packages]\n       goose rules\n       goose init\n\nflags:")
+		fmt.Fprintln(stderr, "usage: goxlint [flags] [packages]\n       goxlint rules\n       goxlint init\n\nflags:")
 		fs.PrintDefaults()
 	}
 
@@ -145,17 +145,17 @@ func lint(args []string, stdout, stderr io.Writer, reg *config.Registry) (int, e
 		return 0, err
 	}
 
-	maxFix := goose.FixNone
+	maxFix := goxlint.FixNone
 	switch {
 	case *fixDangerous:
-		maxFix = goose.FixDangerous
+		maxFix = goxlint.FixDangerous
 	case *fixSuggest:
-		maxFix = goose.FixSuggestion
+		maxFix = goxlint.FixSuggestion
 	case *fix:
-		maxFix = goose.FixSafe
+		maxFix = goxlint.FixSafe
 	}
 
-	typed := resolved.AnyOverrideNeedsTypes(reg) || slices.ContainsFunc(resolved.AllRules(), func(r *goose.Rule) bool { return r.Meta.NeedsTypes })
+	typed := resolved.AnyOverrideNeedsTypes(reg) || slices.ContainsFunc(resolved.AllRules(), func(r *goxlint.Rule) bool { return r.Meta.NeedsTypes })
 	opts := engine.LoadOptions{Dir: cwd, Patterns: patterns, Typed: typed, Tags: splitTags(*tags), Ignore: resolved.Ignored}
 	rulesFor := func(name string) []engine.ConfiguredRule { return resolved.RulesFor(name, reg) }
 
@@ -164,7 +164,7 @@ func lint(args []string, stdout, stderr io.Writer, reg *config.Registry) (int, e
 	lintOpts := engine.LintOptions{ReportUnusedSuppressions: resolved.ReportUnusedSuppressions}
 	results := engine.LintAll(files, rulesFor, lintOpts)
 
-	if maxFix != goose.FixNone {
+	if maxFix != goxlint.FixNone {
 		fixed := 0
 		for i, f := range files {
 			// An incomplete package may leave rules without the context needed for safe fixes.
@@ -188,7 +188,7 @@ func lint(args []string, stdout, stderr io.Writer, reg *config.Registry) (int, e
 	}
 
 	for _, e := range loadErrs {
-		fmt.Fprintln(stderr, "goose: load:", e)
+		fmt.Fprintln(stderr, "goxlint: load:", e)
 	}
 
 	var diags []engine.Diagnostic
@@ -236,15 +236,15 @@ func applySeverityFlags(cfg *config.Config, flags [][2]string) error {
 	cfg.Categories = maps.Clone(cfg.Categories)
 	cfg.Rules = maps.Clone(cfg.Rules)
 	if cfg.Categories == nil {
-		cfg.Categories = map[goose.Category]string{}
+		cfg.Categories = map[goxlint.Category]string{}
 	}
 	if cfg.Rules == nil {
 		cfg.Rules = map[string]config.RuleSetting{}
 	}
 	for _, f := range flags {
 		sev, target := f[0], f[1]
-		if slices.Contains(goose.Categories, goose.Category(target)) {
-			cfg.Categories[goose.Category(target)] = sev
+		if slices.Contains(goxlint.Categories, goxlint.Category(target)) {
+			cfg.Categories[goxlint.Category(target)] = sev
 			continue
 		}
 		s, err := config.ParseSeverity(sev)
@@ -275,7 +275,7 @@ func listRules(w io.Writer, reg *config.Registry) int {
 			types = "yes"
 		}
 		fix := ""
-		if m.Fixable != goose.FixNone {
+		if m.Fixable != goxlint.FixNone {
 			fix = m.Fixable.String()
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", id, m.Category, scope, fix, types, m.Description)
@@ -287,7 +287,7 @@ func listRules(w io.Writer, reg *config.Registry) int {
 
 func initConfig(stdout, stderr io.Writer, reg *config.Registry) int {
 	if _, err := os.Stat(config.FileName); err == nil {
-		fmt.Fprintf(stderr, "goose: %s already exists\n", config.FileName)
+		fmt.Fprintf(stderr, "goxlint: %s already exists\n", config.FileName)
 		return 2
 	}
 	cfg := config.Default()
@@ -297,11 +297,11 @@ func initConfig(stdout, stderr io.Writer, reg *config.Registry) int {
 	}
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		fmt.Fprintln(stderr, "goose:", err)
+		fmt.Fprintln(stderr, "goxlint:", err)
 		return 2
 	}
 	if err := os.WriteFile(config.FileName, append(b, '\n'), 0o644); err != nil {
-		fmt.Fprintln(stderr, "goose:", err)
+		fmt.Fprintln(stderr, "goxlint:", err)
 		return 2
 	}
 	fmt.Fprintf(stdout, "Created %s with %d rules enabled.\n", config.FileName, len(reg.IDs))

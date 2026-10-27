@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 // LintAll runs file visitors in parallel, then package analyzers, then applies
@@ -78,7 +78,7 @@ func lintPackage(files []File, group []int, rules [][]ConfiguredRule, out [][]Di
 			disableSuppressionAudit(group, opts)
 			continue
 		}
-		contexts := make([]*goose.Context, len(group))
+		contexts := make([]*goxlint.Context, len(group))
 		pending := make([][]Diagnostic, len(group))
 		firstEnabled := -1
 		for j, i := range group {
@@ -100,16 +100,16 @@ func lintPackage(files []File, group []int, rules [][]ConfiguredRule, out [][]Di
 			if cr.Rule.Meta.NeedsTypes {
 				pkg, info = f.Pkg, f.Info
 			}
-			report := func(d goose.Diagnostic) {
+			report := func(d goxlint.Diagnostic) {
 				if configured.Severity != Off {
 					pending[j] = append(pending[j], resolve(f, f.Fset.File(f.AST.FileStart), &configured, d))
 				}
 			}
-			ctx := goose.NewContext(cr.Rule, id, f.Fset, f.AST, f.Filename, f.Source, pkg, info, configured.Options, &stack, report)
+			ctx := goxlint.NewContext(cr.Rule, id, f.Fset, f.AST, f.Filename, f.Source, pkg, info, configured.Options, &stack, report)
 			ctx.Enabled = configured.Severity != Off
 			contexts[j] = ctx
 		}
-		ctx := &goose.PackageContext{Name: files[group[0]].AST.Name.Name, Files: contexts}
+		ctx := &goxlint.PackageContext{Name: files[group[0]].AST.Name.Name, Files: contexts}
 		if err := analyzePackage(cr.Rule, ctx); err != nil {
 			i := group[firstEnabled]
 			out[i] = append(out[i], internalError(files[i], &cr, err))
@@ -133,7 +133,7 @@ func disableSuppressionAudit(group []int, opts []LintOptions) {
 	}
 }
 
-func analyzePackage(rule *goose.Rule, ctx *goose.PackageContext) (err error) {
+func analyzePackage(rule *goxlint.Rule, ctx *goxlint.PackageContext) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic in AnalyzePackage: %v", r)

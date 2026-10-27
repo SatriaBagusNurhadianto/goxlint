@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/egoisutolabs/goose-lint/internal/engine"
+	"github.com/egoisutolabs/goxlint/internal/engine"
 )
 
 // Formats lists the supported --format values.

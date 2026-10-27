@@ -3,17 +3,17 @@ package engine
 import (
 	"sort"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 // ApplyFixes applies the fixes in diags whose kind is at most maxKind to src.
 // A fix is skipped in its entirety if any edit is out of bounds, overlaps another
 // edit in the same fix, or overlaps an already-applied fix. It returns the new
 // source and the diagnostics whose fixes were applied.
-func ApplyFixes(src []byte, diags []Diagnostic, maxKind goose.FixKind) ([]byte, []Diagnostic) {
+func ApplyFixes(src []byte, diags []Diagnostic, maxKind goxlint.FixKind) ([]byte, []Diagnostic) {
 	var candidates []Diagnostic
 	for _, d := range diags {
-		if d.Fix != nil && d.Fix.Kind >= goose.FixSafe && d.Fix.Kind <= goose.FixDangerous && d.Fix.Kind <= maxKind && len(d.Fix.Edits) > 0 {
+		if d.Fix != nil && d.Fix.Kind >= goxlint.FixSafe && d.Fix.Kind <= goxlint.FixDangerous && d.Fix.Kind <= maxKind && len(d.Fix.Edits) > 0 {
 			candidates = append(candidates, d)
 		}
 	}

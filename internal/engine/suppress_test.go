@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 func suppressionFile(t *testing.T, src string) File {
@@ -26,28 +26,28 @@ func TestUnusedSuppressions(t *testing.T) {
 		unused    []string
 		other     int
 	}{
-		{name: "own line", src: "package p\nvar bad = 1 //goose:ignore t/ident reason\n"},
-		{name: "next line", src: "package p\n//goose:ignore t/ident reason\nvar bad = 1\n"},
-		{name: "plugin", src: "package p\n//goose:ignore t\nvar bad = 1\n"},
-		{name: "wildcard", src: "package p\n//goose:ignore *\nvar bad = 1\n"},
-		{name: "file", src: "//goose:ignore-file t/ident\npackage p\nvar bad = 1\nvar _ = bad\n"},
-		{name: "no diagnostics", src: "package p\n//goose:ignore t/ident reason\nvar good = 1\n", unused: []string{"t/ident"}},
-		{name: "unused file", src: "//goose:ignore-file t\npackage p\n", unused: []string{"t"}},
-		{name: "unused wildcard", src: "//goose:ignore-file *\npackage p\n", unused: []string{"*"}},
-		{name: "unknown rule", src: "package p\n//goose:ignore t/typo\nvar bad = 1\n", unused: []string{"t/typo"}, other: 1},
-		{name: "unknown plugin", src: "package p\n//goose:ignore typo\nvar bad = 1\n", unused: []string{"typo"}, other: 1},
-		{name: "partial list", src: "package p\n//goose:ignore t/ident,t/typo explanation\nvar bad = 1\n", unused: []string{"t/typo"}},
-		{name: "file partial list", src: "//goose:ignore-file t/typo,t/ident\npackage p\nvar bad = 1\n", unused: []string{"t/typo"}},
-		{name: "duplicate target", src: "package p\n//goose:ignore t/ident,t/ident\nvar bad = 1\n", unused: []string{"t/ident"}},
-		{name: "duplicate directive", src: "//goose:ignore-file t\npackage p\n//goose:ignore t/ident\nvar bad = 1\n", unused: []string{"t/ident"}},
-		{name: "redundant wildcard", src: "package p\n//goose:ignore t/ident,*\nvar bad = 1\n", unused: []string{"*"}},
-		{name: "out of scope", src: "package p\n//goose:ignore t/ident\n\nvar bad = 1\n", unused: []string{"t/ident"}, other: 1},
-		{name: "does not suppress audit", src: "//goose:ignore-file *\npackage p\n//goose:ignore t/typo\nvar bad = 1\n", unused: []string{"t/typo"}},
-		{name: "cannot suppress itself", src: "//goose:ignore-file goose/unused-suppression\npackage p\n", unused: []string{"goose/unused-suppression"}},
-		{name: "multiple findings one target", src: "package p\n//goose:ignore t/ident\nvar bad = bad\n"},
-		{name: "extra whitespace and CRLF", src: "package p\r\n//goose:ignore   t/typo reason\r\n", unused: []string{"t/typo"}},
-		{name: "not a directive", src: "package p\n// goose:ignore t/ident\n/* //goose:ignore t/ident */\nvar bad = 1\n", other: 1},
-		{name: "line directives", src: "package p\n//goose:ignore t/ident\n//line other.go:100\nvar bad = 1\n", unused: []string{"t/ident"}, other: 1},
+		{name: "own line", src: "package p\nvar bad = 1 //goxlint:ignore t/ident reason\n"},
+		{name: "next line", src: "package p\n//goxlint:ignore t/ident reason\nvar bad = 1\n"},
+		{name: "plugin", src: "package p\n//goxlint:ignore t\nvar bad = 1\n"},
+		{name: "wildcard", src: "package p\n//goxlint:ignore *\nvar bad = 1\n"},
+		{name: "file", src: "//goxlint:ignore-file t/ident\npackage p\nvar bad = 1\nvar _ = bad\n"},
+		{name: "no diagnostics", src: "package p\n//goxlint:ignore t/ident reason\nvar good = 1\n", unused: []string{"t/ident"}},
+		{name: "unused file", src: "//goxlint:ignore-file t\npackage p\n", unused: []string{"t"}},
+		{name: "unused wildcard", src: "//goxlint:ignore-file *\npackage p\n", unused: []string{"*"}},
+		{name: "unknown rule", src: "package p\n//goxlint:ignore t/typo\nvar bad = 1\n", unused: []string{"t/typo"}, other: 1},
+		{name: "unknown plugin", src: "package p\n//goxlint:ignore typo\nvar bad = 1\n", unused: []string{"typo"}, other: 1},
+		{name: "partial list", src: "package p\n//goxlint:ignore t/ident,t/typo explanation\nvar bad = 1\n", unused: []string{"t/typo"}},
+		{name: "file partial list", src: "//goxlint:ignore-file t/typo,t/ident\npackage p\nvar bad = 1\n", unused: []string{"t/typo"}},
+		{name: "duplicate target", src: "package p\n//goxlint:ignore t/ident,t/ident\nvar bad = 1\n", unused: []string{"t/ident"}},
+		{name: "duplicate directive", src: "//goxlint:ignore-file t\npackage p\n//goxlint:ignore t/ident\nvar bad = 1\n", unused: []string{"t/ident"}},
+		{name: "redundant wildcard", src: "package p\n//goxlint:ignore t/ident,*\nvar bad = 1\n", unused: []string{"*"}},
+		{name: "out of scope", src: "package p\n//goxlint:ignore t/ident\n\nvar bad = 1\n", unused: []string{"t/ident"}, other: 1},
+		{name: "does not suppress audit", src: "//goxlint:ignore-file *\npackage p\n//goxlint:ignore t/typo\nvar bad = 1\n", unused: []string{"t/typo"}},
+		{name: "cannot suppress itself", src: "//goxlint:ignore-file goxlint/unused-suppression\npackage p\n", unused: []string{"goxlint/unused-suppression"}},
+		{name: "multiple findings one target", src: "package p\n//goxlint:ignore t/ident\nvar bad = bad\n"},
+		{name: "extra whitespace and CRLF", src: "package p\r\n//goxlint:ignore   t/typo reason\r\n", unused: []string{"t/typo"}},
+		{name: "not a directive", src: "package p\n// goxlint:ignore t/ident\n/* //goxlint:ignore t/ident */\nvar bad = 1\n", other: 1},
+		{name: "line directives", src: "package p\n//goxlint:ignore t/ident\n//line other.go:100\nvar bad = 1\n", unused: []string{"t/ident"}, other: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := suppressionFile(t, tc.src)
@@ -77,7 +77,7 @@ func TestUnusedSuppressions(t *testing.T) {
 }
 
 func TestUnusedSuppressionSeverity(t *testing.T) {
-	f := suppressionFile(t, "//goose:ignore-file t/ident\npackage p\n")
+	f := suppressionFile(t, "//goxlint:ignore-file t/ident\npackage p\n")
 	for _, severity := range []Severity{Off, Warn, Error} {
 		diags := LintFile(f, nil, LintOptions{ReportUnusedSuppressions: severity})
 		if severity == Off {
@@ -93,10 +93,10 @@ func TestUnusedSuppressionSeverity(t *testing.T) {
 func TestUnusedSuppressionsSkipIncompleteRules(t *testing.T) {
 	typed := *identRule
 	typed.Meta.NeedsTypes = true
-	createPanic := &goose.Rule{Meta: goose.Meta{Name: "create-panic"}, Create: func(*goose.Context) goose.Visitor { panic("boom") }}
-	for _, rule := range []*goose.Rule{panicRule, createPanic, &typed} {
+	createPanic := &goxlint.Rule{Meta: goxlint.Meta{Name: "create-panic"}, Create: func(*goxlint.Context) goxlint.Visitor { panic("boom") }}
+	for _, rule := range []*goxlint.Rule{panicRule, createPanic, &typed} {
 		t.Run(rule.Meta.Name, func(t *testing.T) {
-			f := suppressionFile(t, "package p\n//goose:ignore t/ident\nfunc good() {}\n")
+			f := suppressionFile(t, "package p\n//goxlint:ignore t/ident\nfunc good() {}\n")
 			diags := LintFile(f, []ConfiguredRule{{ID: "t/" + rule.Meta.Name, Rule: rule, Severity: Error}}, LintOptions{ReportUnusedSuppressions: Warn})
 			for _, d := range diags {
 				if d.RuleID == UnusedSuppressionRuleID {
@@ -108,9 +108,9 @@ func TestUnusedSuppressionsSkipIncompleteRules(t *testing.T) {
 }
 
 func TestUnusedSuppressionCreateOnlyRule(t *testing.T) {
-	f := suppressionFile(t, "//goose:ignore-file t/create\npackage p\n")
-	rule := &goose.Rule{Create: func(ctx *goose.Context) goose.Visitor {
-		ctx.Report(goose.Diagnostic{Node: ctx.File, Message: "file finding"})
+	f := suppressionFile(t, "//goxlint:ignore-file t/create\npackage p\n")
+	rule := &goxlint.Rule{Create: func(ctx *goxlint.Context) goxlint.Visitor {
+		ctx.Report(goxlint.Diagnostic{Node: ctx.File, Message: "file finding"})
 		return nil
 	}}
 	diags := LintFile(f, []ConfiguredRule{{ID: "t/create", Rule: rule, Severity: Warn}}, LintOptions{ReportUnusedSuppressions: Warn})
@@ -120,7 +120,7 @@ func TestUnusedSuppressionCreateOnlyRule(t *testing.T) {
 }
 
 func TestUnusedSuppressionsAcrossRules(t *testing.T) {
-	f := suppressionFile(t, "package p\n//goose:ignore t/ident,t/stmt\nfunc bad() { return }\n")
+	f := suppressionFile(t, "package p\n//goxlint:ignore t/ident,t/stmt\nfunc bad() { return }\n")
 	rules := []ConfiguredRule{
 		{ID: "t/ident", Rule: identRule, Severity: Error},
 		{ID: "t/stmt", Rule: stmtRule, Severity: Warn},

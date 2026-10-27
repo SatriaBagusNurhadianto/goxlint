@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 func TestApplyFixesRejectsInvalidEdits(t *testing.T) {
@@ -21,10 +21,10 @@ func TestApplyFixesRejectsInvalidEdits(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			diags := []Diagnostic{
-				{RuleID: "invalid", Fix: &Fix{Kind: goose.FixSafe, Edits: tc.edits}},
-				{RuleID: "valid", Fix: &Fix{Kind: goose.FixSafe, Edits: []Edit{{Start: 0, End: 1, NewText: "A"}}}},
+				{RuleID: "invalid", Fix: &Fix{Kind: goxlint.FixSafe, Edits: tc.edits}},
+				{RuleID: "valid", Fix: &Fix{Kind: goxlint.FixSafe, Edits: []Edit{{Start: 0, End: 1, NewText: "A"}}}},
 			}
-			out, applied := ApplyFixes([]byte("012345"), diags, goose.FixSafe)
+			out, applied := ApplyFixes([]byte("012345"), diags, goxlint.FixSafe)
 			if string(out) != "A12345" || len(applied) != 1 || applied[0].RuleID != "valid" {
 				t.Fatalf("want only valid fix applied, got %q, %+v", out, applied)
 			}
@@ -33,12 +33,12 @@ func TestApplyFixesRejectsInvalidEdits(t *testing.T) {
 }
 
 func TestApplyFixesMultipleEdits(t *testing.T) {
-	diags := []Diagnostic{{Fix: &Fix{Kind: goose.FixSafe, Edits: []Edit{
+	diags := []Diagnostic{{Fix: &Fix{Kind: goxlint.FixSafe, Edits: []Edit{
 		{Start: 6, End: 6, NewText: "!"},
 		{Start: 2, End: 4, NewText: "B"},
 		{Start: 0, End: 2, NewText: "A"},
 	}}}}
-	out, applied := ApplyFixes([]byte("012345"), diags, goose.FixSafe)
+	out, applied := ApplyFixes([]byte("012345"), diags, goxlint.FixSafe)
 	if string(out) != "AB45!" || len(applied) != 1 {
 		t.Fatalf("want adjacent and out-of-order edits applied together, got %q, %+v", out, applied)
 	}

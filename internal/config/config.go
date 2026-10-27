@@ -1,4 +1,4 @@
-// Package config loads .gooserc.json and resolves which rules apply to each file.
+// Package config loads .goxlintrc.json and resolves which rules apply to each file.
 //
 //	{
 //	  "categories": { "correctness": "error", "style": "warn" },
@@ -23,21 +23,21 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/egoisutolabs/goose-lint/goose"
-	"github.com/egoisutolabs/goose-lint/internal/engine"
+	"github.com/egoisutolabs/goxlint"
+	"github.com/egoisutolabs/goxlint/internal/engine"
 )
 
-// FileName is the config file goose looks for.
-const FileName = ".gooserc.json"
+// FileName is the config file goxlint looks for.
+const FileName = ".goxlintrc.json"
 
 // Config is the parsed config file.
 type Config struct {
 	// ReportUnusedSuppressions is an engine diagnostic severity; omitted means warn.
-	ReportUnusedSuppressions string                    `json:"reportUnusedSuppressions,omitempty"`
-	Categories               map[goose.Category]string `json:"categories,omitempty"`
-	Rules                    map[string]RuleSetting    `json:"rules,omitempty"`
-	IgnorePatterns           []string                  `json:"ignorePatterns,omitempty"`
-	Overrides                []Override                `json:"overrides,omitempty"`
+	ReportUnusedSuppressions string                      `json:"reportUnusedSuppressions,omitempty"`
+	Categories               map[goxlint.Category]string `json:"categories,omitempty"`
+	Rules                    map[string]RuleSetting      `json:"rules,omitempty"`
+	IgnorePatterns           []string                    `json:"ignorePatterns,omitempty"`
+	Overrides                []Override                  `json:"overrides,omitempty"`
 }
 
 // Override changes rule settings for files matching any of Files.
@@ -111,7 +111,7 @@ func severityName(s engine.Severity) string {
 
 // Default is used when no config file is found: correctness rules warn.
 func Default() *Config {
-	return &Config{Categories: map[goose.Category]string{goose.Correctness: "warn"}}
+	return &Config{Categories: map[goxlint.Category]string{goxlint.Correctness: "warn"}}
 }
 
 // Find looks for FileName in dir and its parents. It returns "" if none exists.
@@ -147,17 +147,17 @@ func Load(path string) (*Config, error) {
 // Registry indexes rules from plugins by "<plugin>/<rule>".
 type Registry struct {
 	IDs   []string
-	Rules map[string]*goose.Rule
+	Rules map[string]*goxlint.Rule
 }
 
 // NewRegistry builds a registry. It panics on duplicate rule IDs.
-func NewRegistry(plugins ...goose.Plugin) *Registry {
-	r := &Registry{Rules: map[string]*goose.Rule{}}
+func NewRegistry(plugins ...goxlint.Plugin) *Registry {
+	r := &Registry{Rules: map[string]*goxlint.Rule{}}
 	for _, p := range plugins {
 		for _, rule := range p.Rules {
 			id := p.Name + "/" + rule.Meta.Name
 			if _, dup := r.Rules[id]; dup {
-				//goose:ignore anti-slop/no-panic-in-library plugins are compiled in, so a duplicate is a build mistake
+				//goxlint:ignore anti-slop/no-panic-in-library plugins are compiled in, so a duplicate is a build mistake
 				panic("duplicate rule " + id)
 			}
 			r.Rules[id] = rule
@@ -194,7 +194,7 @@ func Resolve(c *Config, reg *Registry, root string) (*Resolved, error) {
 	}
 	settings := map[string]RuleSetting{}
 	for cat, sev := range c.Categories {
-		if !slices.Contains(goose.Categories, cat) {
+		if !slices.Contains(goxlint.Categories, cat) {
 			return nil, fmt.Errorf("unknown category %q", cat)
 		}
 		s, err := ParseSeverity(sev)
@@ -226,7 +226,7 @@ func Resolve(c *Config, reg *Registry, root string) (*Resolved, error) {
 func checkRules(rules map[string]RuleSetting, reg *Registry) error {
 	for id := range rules {
 		if _, ok := reg.Rules[id]; !ok {
-			return fmt.Errorf("unknown rule %q (run `goose rules` to list rules)", id)
+			return fmt.Errorf("unknown rule %q (run `goxlint rules` to list rules)", id)
 		}
 	}
 	return nil
@@ -271,8 +271,8 @@ func (r *Resolved) RulesFor(path string, reg *Registry) []engine.ConfiguredRule 
 
 // AllRules returns every rule enabled anywhere in the config, used to decide
 // whether type information is needed.
-func (r *Resolved) AllRules() []*goose.Rule {
-	var out []*goose.Rule
+func (r *Resolved) AllRules() []*goxlint.Rule {
+	var out []*goxlint.Rule
 	for _, cr := range r.base {
 		out = append(out, cr.Rule)
 	}

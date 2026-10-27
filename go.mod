@@ -1,4 +1,4 @@
-module github.com/egoisutolabs/goose-lint
+module github.com/egoisutolabs/goxlint
 
 go 1.26.0
 

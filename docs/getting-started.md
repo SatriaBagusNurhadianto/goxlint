@@ -8,16 +8,16 @@ This procedure makes a linter with one rule. The rule finds calls to
 - Go 1.26 or later.
 - A Go module that you want to lint.
 
-## 1. Add Goose to your module
+## 1. Add goxlint to your module
 
 1. Go to the root directory of your module.
 2. Add the dependency:
 
    ```sh
-   go get github.com/egoisutolabs/goose-lint
+   go get github.com/egoisutolabs/goxlint
    ```
 
-You can also keep the linter in a separate module. Goose does not need to be in
+You can also keep the linter in a separate module. goxlint does not need to be in
 the same module as the code that it examines.
 
 ## 2. Write a rule
@@ -31,25 +31,25 @@ the same module as the code that it examines.
    import (
    	"go/ast"
 
-   	"github.com/egoisutolabs/goose-lint/goose"
+   	"github.com/egoisutolabs/goxlint"
    )
 
    // NoPrintln finds calls to fmt.Println.
-   var NoPrintln = &goose.Rule{
-   	Meta: goose.Meta{
+   var NoPrintln = &goxlint.Rule{
+   	Meta: goxlint.Meta{
    		Name:        "no-println",
    		Description: "Disallow fmt.Println.",
-   		Category:    goose.Restriction,
+   		Category:    goxlint.Restriction,
    		NeedsTypes:  true,
    		Messages: map[string]string{
    			"println": "Do not write to stdout with `fmt.Println`.",
    		},
    	},
-   	Create: func(ctx *goose.Context) goose.Visitor {
-   		return goose.Visit(
-   			goose.On(func(call *ast.CallExpr) {
+   	Create: func(ctx *goxlint.Context) goxlint.Visitor {
+   		return goxlint.Visit(
+   			goxlint.On(func(call *ast.CallExpr) {
    				if ctx.IsPkgFunc(call, "fmt", "Println") {
-   					ctx.Report(goose.Diagnostic{
+   					ctx.Report(goxlint.Diagnostic{
    						Node:      call,
    						MessageID: "println",
    						Help:      "Use a logger that the caller can configure.",
@@ -70,12 +70,12 @@ different name.
    ```go
    package rules
 
-   import "github.com/egoisutolabs/goose-lint/goose"
+   import "github.com/egoisutolabs/goxlint"
 
    // Plugin registers the rules. Their IDs start with "acme/".
-   var Plugin = goose.Plugin{
+   var Plugin = goxlint.Plugin{
    	Name:  "acme",
-   	Rules: []*goose.Rule{NoPrintln},
+   	Rules: []*goxlint.Rule{NoPrintln},
    }
    ```
 
@@ -87,7 +87,7 @@ different name.
    package main
 
    import (
-   	"github.com/egoisutolabs/goose-lint/cli"
+   	"github.com/egoisutolabs/goxlint/cli"
 
    	"example.com/project/tools/lint/rules"
    )
@@ -118,7 +118,7 @@ must enable it.
    go run ./tools/lint init
    ```
 
-   This command writes `.gooserc.json`. The file sets each registered rule to
+   This command writes `.goxlintrc.json`. The file sets each registered rule to
    `error`.
 
 2. Examine the file. Change the severities that you do not want.
@@ -163,18 +163,18 @@ The exit code is `1` when there are errors. For all flags and exit codes, read
    import (
    	"testing"
 
-   	"github.com/egoisutolabs/goose-lint/goosetest"
+   	"github.com/egoisutolabs/goxlint/goxlinttest"
    )
 
    func TestNoPrintln(t *testing.T) {
-   	goosetest.Run(t, NoPrintln, goosetest.Cases{
-   		Valid: []goosetest.Case{
+   	goxlinttest.Run(t, NoPrintln, goxlinttest.Cases{
+   		Valid: []goxlinttest.Case{
    			{Code: "import \"fmt\"\nfunc f() { fmt.Print(1) }"},
    		},
-   		Invalid: []goosetest.Case{
+   		Invalid: []goxlinttest.Case{
    			{
    				Code:   "import \"fmt\"\nfunc f() { fmt.Println(1) }",
-   				Errors: []goosetest.Error{{MessageID: "println", Line: 2}},
+   				Errors: []goxlinttest.Error{{MessageID: "println", Line: 2}},
    			},
    		},
    	})
@@ -193,4 +193,4 @@ For all test settings, read [Testing rules](testing-rules.md).
 
 - Read [Writing rules](writing-rules.md) for the complete rule API.
 - Add a fix to your rule. Read [Fixes](fixes.md).
-- Read the example plugins in [`examples/goose/plugins`](../examples/goose/plugins).
+- Read the example plugins in [`examples/goxlint/plugins`](../examples/goxlint/plugins).

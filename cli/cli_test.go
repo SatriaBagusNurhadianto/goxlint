@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/egoisutolabs/goose-lint/goose"
+	"github.com/egoisutolabs/goxlint"
 )
 
 func writeTestFile(t *testing.T, name, source string) {
@@ -18,14 +18,14 @@ func writeTestFile(t *testing.T, name, source string) {
 	}
 }
 
-func testPlugin(typed bool) goose.Plugin {
-	return goose.Plugin{Name: "test", Rules: []*goose.Rule{{
-		Meta: goose.Meta{Name: "rename", Category: goose.Correctness, NeedsTypes: typed, Fixable: goose.FixSafe},
-		Create: func(ctx *goose.Context) goose.Visitor {
-			return goose.Visit(goose.On(func(id *ast.Ident) {
+func testPlugin(typed bool) goxlint.Plugin {
+	return goxlint.Plugin{Name: "test", Rules: []*goxlint.Rule{{
+		Meta: goxlint.Meta{Name: "rename", Category: goxlint.Correctness, NeedsTypes: typed, Fixable: goxlint.FixSafe},
+		Create: func(ctx *goxlint.Context) goxlint.Visitor {
+			return goxlint.Visit(goxlint.On(func(id *ast.Ident) {
 				if id.Name == "bad" {
-					ctx.Report(goose.Diagnostic{Node: id, Message: "rename bad", Fix: &goose.Fix{
-						Kind: goose.FixSafe, Edits: []goose.Edit{goose.ReplaceNode(id, "good")},
+					ctx.Report(goxlint.Diagnostic{Node: id, Message: "rename bad", Fix: &goxlint.Fix{
+						Kind: goxlint.FixSafe, Edits: []goxlint.Edit{goxlint.ReplaceNode(id, "good")},
 					}})
 				}
 			}))
@@ -47,7 +47,7 @@ func TestLoadErrorsFail(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
 			writeTestFile(t, "go.mod", "module example.com/test\n\ngo 1.26.0\n")
-			writeTestFile(t, ".gooserc.json", `{"rules":{"test/rename":"error"}}`)
+			writeTestFile(t, ".goxlintrc.json", `{"rules":{"test/rename":"error"}}`)
 			const source = "package p\nvar bad = 1\n"
 			writeTestFile(t, "valid.go", source)
 			if !tc.missing {
@@ -55,7 +55,7 @@ func TestLoadErrorsFail(t *testing.T) {
 			}
 			var stdout, stderr bytes.Buffer
 			code := Run([]string{"--fix", "--format=json", "valid.go", "broken.go"}, &stdout, &stderr, testPlugin(tc.typed))
-			if code != 2 || !strings.Contains(stderr.String(), "goose: load:") {
+			if code != 2 || !strings.Contains(stderr.String(), "goxlint: load:") {
 				t.Fatalf("want exit 2 and load error, got %d: %s", code, &stderr)
 			}
 			if !strings.Contains(stdout.String(), "rename bad") {
@@ -74,7 +74,7 @@ func TestLoadErrorsFail(t *testing.T) {
 
 func TestInvalidFormatDoesNotApplyFixes(t *testing.T) {
 	t.Chdir(t.TempDir())
-	writeTestFile(t, ".gooserc.json", `{"rules":{"test/rename":"error"}}`)
+	writeTestFile(t, ".goxlintrc.json", `{"rules":{"test/rename":"error"}}`)
 	const source = "package p\nvar bad = 1\n"
 	writeTestFile(t, "example.go", source)
 	var stdout, stderr bytes.Buffer
@@ -93,7 +93,7 @@ func TestInvalidFormatDoesNotApplyFixes(t *testing.T) {
 
 func TestRunExitCodes(t *testing.T) {
 	t.Chdir(t.TempDir())
-	writeTestFile(t, ".gooserc.json", `{"rules":{"test/rename":"warn"}}`)
+	writeTestFile(t, ".goxlintrc.json", `{"rules":{"test/rename":"warn"}}`)
 	for _, tc := range []struct {
 		name string
 		args []string
@@ -141,12 +141,12 @@ func TestUnusedSuppressionReporting(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			writeTestFile(t, ".gooserc.json", `{"rules":{"test/rename":"error"}`+tc.config+`}`)
+			writeTestFile(t, ".goxlintrc.json", `{"rules":{"test/rename":"error"}`+tc.config+`}`)
 			name := "good"
 			if tc.name == "disabled rule" || tc.name == "file override" {
 				name = "bad"
 			}
-			writeTestFile(t, "example.go", "package p\n//goose:ignore test/rename reason\nvar "+name+" = 1\n")
+			writeTestFile(t, "example.go", "package p\n//goxlint:ignore test/rename reason\nvar "+name+" = 1\n")
 			var stdout, stderr bytes.Buffer
 			args := append([]string{"--format=json", "example.go"}, tc.args...)
 			if code := Run(args, &stdout, &stderr, testPlugin(false)); code != tc.code {
@@ -157,7 +157,7 @@ func TestUnusedSuppressionReporting(t *testing.T) {
 					t.Fatalf("want no output diagnostics: %s", &stdout)
 				}
 			} else {
-				for _, want := range []string{`"rule": "goose/unused-suppression"`, `"severity": "` + tc.severity + `"`, `"line": 2`, `"column": 16`} {
+				for _, want := range []string{`"rule": "goxlint/unused-suppression"`, `"severity": "` + tc.severity + `"`, `"line": 2`, `"column": 18`} {
 					if !strings.Contains(stdout.String(), want) {
 						t.Errorf("missing %s in output: %s", want, &stdout)
 					}
@@ -178,7 +178,7 @@ func TestInvalidUnusedSuppressionSeverity(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			writeTestFile(t, ".gooserc.json", `{"rules":{"test/rename":"error"}`+tc.config+`}`)
+			writeTestFile(t, ".goxlintrc.json", `{"rules":{"test/rename":"error"}`+tc.config+`}`)
 			const source = "package p\nvar bad = 1\n"
 			writeTestFile(t, "example.go", source)
 			var stdout, stderr bytes.Buffer
@@ -199,8 +199,8 @@ func TestInvalidUnusedSuppressionSeverity(t *testing.T) {
 
 func TestUnusedSuppressionsSkipLoadErrors(t *testing.T) {
 	t.Chdir(t.TempDir())
-	writeTestFile(t, ".gooserc.json", `{"rules":{"test/rename":"error"}}`)
-	writeTestFile(t, "example.go", "package p\n//goose:ignore test/rename\nvar good = 1\n")
+	writeTestFile(t, ".goxlintrc.json", `{"rules":{"test/rename":"error"}}`)
+	writeTestFile(t, "example.go", "package p\n//goxlint:ignore test/rename\nvar good = 1\n")
 	var stdout, stderr bytes.Buffer
 	if code := Run([]string{"--format=json", "example.go", "missing.go"}, &stdout, &stderr, testPlugin(false)); code != 2 {
 		t.Fatalf("want load error, got exit %d: %s", code, &stderr)
@@ -212,14 +212,14 @@ func TestUnusedSuppressionsSkipLoadErrors(t *testing.T) {
 
 func TestUnusedSuppressionFormats(t *testing.T) {
 	t.Chdir(t.TempDir())
-	writeTestFile(t, ".gooserc.json", `{}`)
-	const source = "package p\n//goose:ignore unknown/rule reason\nvar good = 1\n"
+	writeTestFile(t, ".goxlintrc.json", `{}`)
+	const source = "package p\n//goxlint:ignore unknown/rule reason\nvar good = 1\n"
 	writeTestFile(t, "example.go", source)
 	for _, tc := range []struct{ format, want string }{
-		{"default", "goose(unused-suppression)"},
-		{"unix", "example.go:2:16:"},
-		{"github", "::warning file=example.go,line=2,endLine=2,col=16,endColumn=28,title=goose/unused-suppression::"},
-		{"json", `"rule": "goose/unused-suppression"`},
+		{"default", "goxlint(unused-suppression)"},
+		{"unix", "example.go:2:18:"},
+		{"github", "::warning file=example.go,line=2,endLine=2,col=18,endColumn=30,title=goxlint/unused-suppression::"},
+		{"json", `"rule": "goxlint/unused-suppression"`},
 	} {
 		t.Run(tc.format, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
@@ -251,14 +251,14 @@ func TestLoadErrorsStayInTheirPackage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
 			writeTestFile(t, "go.mod", "module example.com/test\n\ngo 1.26.0\n")
-			writeTestFile(t, ".gooserc.json", `{"rules":{"test/rename":"error"}}`)
+			writeTestFile(t, ".goxlintrc.json", `{"rules":{"test/rename":"error"}}`)
 			for _, dir := range []string{"ok", "broken", "importer"} {
 				if err := os.Mkdir(dir, 0o755); err != nil {
 					t.Fatal(err)
 				}
 			}
 			writeTestFile(t, "ok/a.go", "package ok\nvar bad = 1\n")
-			writeTestFile(t, "ok/b.go", "package ok\n//goose:ignore test/rename stale\nvar fine = 1\n")
+			writeTestFile(t, "ok/b.go", "package ok\n//goxlint:ignore test/rename stale\nvar fine = 1\n")
 			writeTestFile(t, "broken/broken.go", tc.broken)
 			const importer = "package importer\nimport \"example.com/test/broken\"\nvar bad = broken.X\n"
 			writeTestFile(t, "importer/i.go", importer)
@@ -268,13 +268,13 @@ func TestLoadErrorsStayInTheirPackage(t *testing.T) {
 			if code != 2 {
 				t.Fatalf("want exit 2, got %d: %s", code, &stderr)
 			}
-			if n := strings.Count(stderr.String(), "goose: load:"); n != 1 {
+			if n := strings.Count(stderr.String(), "goxlint: load:"); n != 1 {
 				t.Fatalf("want the load error once, got %d: %s", n, &stderr)
 			}
 			if got, _ := os.ReadFile("ok/a.go"); string(got) != "package ok\nvar good = 1\n" {
 				t.Fatalf("healthy package was not fixed: %q", got)
 			}
-			if !strings.Contains(stdout.String(), "ok/b.go:2:16: Unused suppression") {
+			if !strings.Contains(stdout.String(), "ok/b.go:2:18: Unused suppression") {
 				t.Fatalf("healthy package was not audited: %s", &stdout)
 			}
 			// Without types there are no imports to follow, so only typed mode
