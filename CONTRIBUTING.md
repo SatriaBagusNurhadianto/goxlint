@@ -8,7 +8,10 @@ Read [Style of the documents](#style-of-the-documents).
 
 ## Report a problem
 
-Open an issue on GitHub. Include this information:
+To report a security problem, do not open an issue. Read
+[SECURITY.md](SECURITY.md).
+
+For other problems, open an issue on GitHub. Include this information:
 
 - The goxlint version, or the commit.
 - The output of `go version`.
