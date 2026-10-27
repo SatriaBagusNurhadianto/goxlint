@@ -1,0 +1,11 @@
+# Local reference checkouts (oxc, anti-slop). Not part of this project.
+/ref/
+
+# Build output
+*.test
+*.out
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/

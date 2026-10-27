@@ -1,0 +1,15 @@
+{
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "style": "error",
+    "restriction": "error"
+  },
+  "ignorePatterns": ["ref/**"],
+  "overrides": [
+    {
+      "files": ["**/*_test.go"],
+      "rules": { "anti-slop/no-any-map-values": "off" }
+    }
+  ]
+}
