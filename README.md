@@ -120,6 +120,8 @@ go test -race ./...
 go vet ./...
 ```
 
+To report a problem or send a change, read [Contributing](CONTRIBUTING.md).
+
 ## License
 
 goxlint is available under the [MIT License](LICENSE).
