@@ -49,14 +49,17 @@ type sarifRule struct {
 }
 
 type sarifResult struct {
-	RuleID     string            `json:"ruleId"`
-	Level      string            `json:"level"`
-	Message    sarifText         `json:"message"`
-	Locations  []sarifLocation   `json:"locations"`
-	Properties map[string]string `json:"properties,omitempty"`
+	RuleID           string            `json:"ruleId"`
+	Level            string            `json:"level"`
+	Message          sarifText         `json:"message"`
+	Locations        []sarifLocation   `json:"locations"`
+	Properties       map[string]string `json:"properties,omitempty"`
+	RelatedLocations []sarifLocation   `json:"relatedLocations,omitempty"`
 }
 
 type sarifLocation struct {
+	ID               int                   `json:"id,omitempty"`
+	Message          *sarifText            `json:"message,omitempty"`
 	PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"`
 }
 
@@ -99,13 +102,15 @@ func (p *Printer) sarif(diags []engine.Diagnostic) error {
 	for _, d := range diags {
 		result := sarifResult{
 			RuleID: d.RuleID, Level: d.Severity.String(), Message: sarifText{Text: d.Message},
-			Locations: []sarifLocation{{PhysicalLocation: sarifPhysicalLocation{
-				ArtifactLocation: sarifArtifactLocation{URI: p.sarifURI(d.Filename)},
-				Region: sarifRegion{
-					StartLine: d.Start.Line, StartColumn: sarifColumn(p.Sources[d.Filename], d.Start),
-					EndLine: d.End.Line, EndColumn: sarifColumn(p.Sources[d.Filename], d.End),
-				},
-			}}},
+			Locations: []sarifLocation{p.sarifLocation(d.Filename, d.Start, d.End)},
+		}
+		for i, related := range d.Related {
+			location := p.sarifLocation(related.Filename, related.Start, related.End)
+			location.ID = i + 1
+			if related.Message != "" {
+				location.Message = &sarifText{Text: related.Message}
+			}
+			result.RelatedLocations = append(result.RelatedLocations, location)
 		}
 		if d.Help != "" {
 			result.Properties = map[string]string{"help": d.Help}
@@ -119,6 +124,16 @@ func (p *Printer) sarif(diags []engine.Diagnostic) error {
 	enc := json.NewEncoder(p.W)
 	enc.SetIndent("", "  ")
 	return enc.Encode(log)
+}
+
+func (p *Printer) sarifLocation(filename string, start, end token.Position) sarifLocation {
+	return sarifLocation{PhysicalLocation: sarifPhysicalLocation{
+		ArtifactLocation: sarifArtifactLocation{URI: p.sarifURI(filename)},
+		Region: sarifRegion{
+			StartLine: start.Line, StartColumn: sarifColumn(p.Sources[filename], start),
+			EndLine: end.Line, EndColumn: sarifColumn(p.Sources[filename], end),
+		},
+	}}
 }
 
 func (p *Printer) sarifURI(name string) string {

@@ -92,8 +92,9 @@ func findDuplicateFunctions(pkg *goxlint.PackageContext) {
 			}
 			fn.ctx.Report(goxlint.Diagnostic{
 				Node: fn.fn.Name, MessageID: "duplicate",
-				Data: goxlint.Data{"name": fn.fn.Name.Name, "other": first.fn.Name.Name, "location": location},
-				Help: "Review whether the existing function can be reused or a shared helper extracted. Structural similarity does not prove behavioral equivalence.",
+				Data:    goxlint.Data{"name": fn.fn.Name.Name, "other": first.fn.Name.Name, "location": location},
+				Help:    "Review whether the existing function can be reused or a shared helper extracted. Structural similarity does not prove behavioral equivalence.",
+				Related: []goxlint.Related{{Node: first.fn.Name, Message: "Existing function " + first.fn.Name.Name + "."}},
 			})
 		}
 	}

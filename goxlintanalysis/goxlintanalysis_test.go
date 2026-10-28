@@ -304,3 +304,29 @@ func TestOverlappingFixIsNotSuggested(t *testing.T) {
 		t.Fatalf("invalid fix exposed to driver: %+v", *diags)
 	}
 }
+
+func TestRelatedLocations(t *testing.T) {
+	reference := filepath.Join("one", "a.go")
+	primary := filepath.Join("two", "b.go")
+	pass, diags := sourcePass(t, map[string]string{reference: "package p\n//line virtual.go:900:20\nvar original = 1\n", primary: "package p\nvar bad = 1\n"})
+	rule := &goxlint.Rule{Meta: goxlint.Meta{Name: "related", Fixable: goxlint.FixSafe}, AnalyzePackage: func(pkg *goxlint.PackageContext) {
+		first, last := pkg.Files[0], pkg.Files[1]
+		node := first.File.Decls[0].(*ast.GenDecl).Specs[0].(*ast.ValueSpec).Names[0]
+		bad := last.File.Decls[0].(*ast.GenDecl).Specs[0].(*ast.ValueSpec).Names[0]
+		last.Report(goxlint.Diagnostic{Node: bad, Message: "duplicate", Related: []goxlint.Related{{Node: node, Message: "original"}, {Pos: node.Pos(), Message: "point"}}, Fix: &goxlint.Fix{Kind: goxlint.FixSafe, Edits: []goxlint.Edit{goxlint.ReplaceNode(bad, "good")}}})
+	}}
+	if _, err := goxlintanalysis.Analyzer("test", rule).Run(pass); err != nil {
+		t.Fatal(err)
+	}
+	if len(*diags) != 1 || len((*diags)[0].Related) != 2 || len((*diags)[0].SuggestedFixes) != 1 {
+		t.Fatalf("lost related information: %+v", *diags)
+	}
+	d := (*diags)[0]
+	start, end := pass.Fset.PositionFor(d.Related[0].Pos, false), pass.Fset.PositionFor(d.Related[0].End, false)
+	if start.Filename != reference || start.Line != 3 || start.Column != 5 || end.Column != 13 || d.Related[0].Message != "original" || d.Related[1].Pos != d.Related[1].End {
+		t.Fatalf("wrong locations: %+v (%v-%v)", d, start, end)
+	}
+	if pass.Fset.PositionFor(d.Pos, false).Filename != primary || d.SuggestedFixes[0].TextEdits[0].Pos != d.Pos {
+		t.Fatalf("primary location or fix changed: %+v", d)
+	}
+}

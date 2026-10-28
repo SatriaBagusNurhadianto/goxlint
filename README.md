@@ -159,6 +159,7 @@ does not add them to stock gopls.
 | Fixes               | A rule can attach a fix. Fixes have three levels: safe, suggestion, and dangerous.                    |
 | Suppressions        | `//goxlint:ignore` comments disable a rule for a line or a file. goxlint reports unused suppressions. |
 | Output              | Code frames for people. Also `unix`, `json`, `github`, and `sarif` for tools and CI.                   |
+| Related locations   | A diagnostic can point to supporting code in loaded files of the same package.                     |
 | Rule tests          | The `goxlinttest` package tests file and package rules with valid and invalid code samples.           |
 | Stdin buffers       | `--stdin-filename` lints unsaved source. Fix flags write the resulting source to stdout.             |
 | Rule timing         | `--timing` shows the 10 slowest rules and load time on stderr.                                       |

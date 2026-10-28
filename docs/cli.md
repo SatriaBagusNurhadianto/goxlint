@@ -223,13 +223,18 @@ Found 1 warning and 0 errors.
 Finished in 85ms on 12 files with 4 rules using 8 threads (syntax mode).
 ```
 
+Each related location adds a code frame with a `related:` label and its
+message. These frames use the loaded source, including unsaved buffers and
+the source after fixes. They do not increase the diagnostic count.
+
 An error has the `×` symbol. A warning has the `⚠` symbol. goxlint uses colors
 only when the output is a terminal and the `NO_COLOR` environment variable is
 not set.
 
 ### unix
 
-One line for each diagnostic. Many editors can read this format.
+One line for each primary diagnostic. Related locations do not add lines.
+Many editors can read this format.
 
 ```text
 api/client.go:12:6: Do not use `foo`. [Warning/acme/no-foo]
@@ -259,10 +264,31 @@ One JSON array. Use this format for scripts and coding agents.
 The `severity` field is `warning` or `error`. The `help` and `fix` fields are
 not present when they are empty. The `fix` field gives the fix level.
 
+A diagnostic with related locations also has a `related` array. Each entry
+has `file`, `line`, `column`, `endLine`, `endColumn`, and `message` fields.
+The array keeps report order. It is absent when there are no related locations.
+For example:
+
+```json
+{
+  "related": [
+    {
+      "file": "api/original.go",
+      "line": 8,
+      "column": 6,
+      "endLine": 8,
+      "endColumn": 14,
+      "message": "Existing function."
+    }
+  ]
+}
+```
+
 ### github
 
 GitHub Actions workflow commands. GitHub shows each diagnostic as an annotation
-on the pull request.
+on the pull request. Only the primary location gets an annotation. Related
+locations do not add annotations.
 
 ```text
 ::warning file=api/client.go,line=12,endLine=12,col=6,endColumn=9,title=acme/no-foo::Do not use `foo`.
@@ -287,6 +313,11 @@ Each diagnostic becomes a result with a rule ID, severity, message, and
 source range. Diagnostic help is in `properties.help`. A run with no visible
 diagnostics has an empty `results` array. Exit codes and `--quiet` work as
 with the other formats.
+
+Supporting locations appear in `relatedLocations` on the same result. Each
+entry has a file URI, a source range, and a unique ID within that result. Its
+`message.text` holds the related message when one is set. The array is absent
+when there are no related locations.
 
 SARIF file URIs are relative to the working directory, including `../` for
 files outside it. A path on another Windows volume uses an absolute `file:`

@@ -14,6 +14,10 @@ import (
 type maintainabilityDiagnostic struct {
 	Rule, File, Message, Severity, Fix string
 	Line, Column                       int
+	Related                            []struct {
+		File, Message                    string
+		Line, Column, EndLine, EndColumn int
+	}
 }
 
 func runMaintainability(t *testing.T, args ...string) (int, []maintainabilityDiagnostic, string) {
@@ -51,6 +55,13 @@ func TestMaintainabilityCLI(t *testing.T) {
 			}
 		case "maintainability/no-duplicate-functions":
 			duplicates++
+			if len(d.Related) != 1 {
+				t.Fatalf("missing original location: %+v", d)
+			}
+			ref := d.Related[0]
+			if ref.File != "a.go" || ref.Line != 2 || ref.Column != 6 || ref.EndLine != 2 || ref.EndColumn != 14 || ref.Message != "Existing function existing." {
+				t.Errorf("wrong original location: %+v", ref)
+			}
 			if d.File != "b.go" || !strings.Contains(d.Message, "existing at a.go:2:6") || d.Fix != "" {
 				t.Errorf("bad duplicate finding: %+v", d)
 			}
@@ -102,6 +113,9 @@ func TestDuplicateCLILoadingAndOverrides(t *testing.T) {
 	_, diags, _ = runMaintainability(t, "./...")
 	if len(diags) != 1 || diags[0].File != "a.go" || !strings.Contains(diags[0].Message, "b.go:") {
 		t.Fatalf("disabled file should supply evidence without receiving reports: %+v", diags)
+	}
+	if len(diags[0].Related) != 1 || diags[0].Related[0].File != "b.go" {
+		t.Fatalf("missing disabled reference: %+v", diags)
 	}
 	writeTestFile(t, ".goxlintrc.json", config)
 	writeTestFile(t, "b.go", "package p\n//goxlint:ignore maintainability/no-duplicate-functions required by separate interface\nfunc copied(y int) int { return y+1 }\n")
