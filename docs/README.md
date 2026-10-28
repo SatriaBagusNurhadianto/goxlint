@@ -40,6 +40,7 @@ These documents use these terms with these meanings.
 | Rule | One check, `goxlint.Rule`. |
 | Rule ID | The plugin name and the rule name, for example `acme/no-foo`. |
 | Diagnostic | One problem that a rule reports. |
+| Related location | A supporting source range attached to a diagnostic. |
 | Severity | `off`, `warn`, or `error`. The configuration sets the severity of each rule. |
 | Category | A group of rules, for example `correctness` or `style`. |
 | Fix | A set of text edits that a rule attaches to a diagnostic. |

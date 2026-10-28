@@ -101,20 +101,39 @@ rule must decide how the options of different files apply.
 
 ## Reports
 
-Report through the context of the file that contains the node. The diagnostic
-and its fix must be in that file. If you use a node from a different file,
-goxlint reports an internal error for the rule.
+Report through the context of the file that contains the primary node. The
+primary diagnostic and its fix must be in that file. If the primary node is
+from a different file, goxlint reports an internal error for the rule.
 
-To refer to a different file, put its location in the message or in the help
-text:
+To refer to a supporting node, use `Related`. This helper reports a copied
+function and points to the original function:
 
 ```go
-file.Report(goxlint.Diagnostic{
-	Node:      fn.Name,
-	MessageID: "duplicate",
-	Data:      goxlint.Data{"name": fn.Name.Name, "location": "a.go:12:6"},
-})
+package rules
+
+import (
+	"go/ast"
+
+	"github.com/egoisutolabs/goxlint"
+)
+
+func reportDuplicate(file *goxlint.Context, fn, original *ast.FuncDecl) {
+	file.Report(goxlint.Diagnostic{
+		Node:    fn.Name,
+		Message: "This function copies an existing function.",
+		Related: []goxlint.Related{{
+			Node:    original.Name,
+			Message: "Existing function.",
+		}},
+	})
+}
 ```
+
+Both nodes must use `file.Fset`. The original function can be in any loaded
+file of the same package, including a file where the rule is off. A related
+location cannot refer to an ignored file or to a different package. See
+[Related locations](writing-rules.md#related-locations) for range validation
+and suppression behavior.
 
 Report before `AnalyzePackage` returns. goxlint ignores reports after that.
 

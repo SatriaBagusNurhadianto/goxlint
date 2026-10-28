@@ -185,7 +185,11 @@ Each analyzer runs one rule. It keeps `//goxlint:ignore` and
 a suppression for another analyzer cannot be checked in this pass.
 
 Diagnostics include the rule message and help text. Their `Category` is the
-rule category. A rule panic or an invalid report becomes an internal-error
+rule category. Related locations become `analysis.RelatedInformation` entries
+in `analysis.Diagnostic.Related`. They use the same driver source snapshot as
+the primary diagnostic. The host decides how to display them.
+
+A rule panic or an invalid report becomes an internal-error
 diagnostic. It does not stop the analysis driver.
 
 The adapter does not read `.goxlintrc.json`. It does not select rules by their

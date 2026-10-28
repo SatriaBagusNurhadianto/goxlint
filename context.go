@@ -24,8 +24,20 @@ type Diagnostic struct {
 	Data      Data
 	// Help is an optional hint printed under the diagnostic.
 	Help string
+	// Related contains supporting locations in loaded files of the same package.
+	// They do not change the primary location used for suppressions and fixes.
+	Related []Related
 	// Fix is an optional fix. Its kind must not exceed Meta.Fixable.
 	Fix *Fix
+}
+
+// Related is a supporting location for a diagnostic. Positions use the
+// reporting context's FileSet. Node takes precedence over Pos and End.
+// An omitted End denotes a point at Pos. Message labels the location.
+type Related struct {
+	Node     ast.Node
+	Pos, End token.Pos
+	Message  string
 }
 
 // Fix is a set of non-overlapping text edits.
