@@ -98,7 +98,7 @@ func (p *Printer) sarif(diags []engine.Diagnostic) error {
 	results := make([]sarifResult, 0, len(diags))
 	for _, d := range diags {
 		result := sarifResult{
-			RuleID: d.RuleID, Level: d.Severity.String(), Message: sarifText{Text: d.Message},
+			RuleID: d.RuleID, Level: sarifLevel(d.Severity), Message: sarifText{Text: d.Message},
 			Locations: []sarifLocation{{PhysicalLocation: sarifPhysicalLocation{
 				ArtifactLocation: sarifArtifactLocation{URI: p.sarifURI(d.Filename)},
 				Region: sarifRegion{
@@ -121,9 +121,20 @@ func (p *Printer) sarif(diags []engine.Diagnostic) error {
 	return enc.Encode(log)
 }
 
+func sarifLevel(s engine.Severity) string {
+	switch s {
+	case engine.Warn:
+		return "warning"
+	case engine.Error:
+		return "error"
+	default:
+		return "note"
+	}
+}
+
 func (p *Printer) sarifURI(name string) string {
 	if p.Root != "" {
-		if rel, err := filepath.Rel(p.Root, name); err == nil {
+		if rel, err := filepath.Rel(p.Root, name); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			name = rel
 		}
 	}
