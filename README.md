@@ -8,236 +8,147 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/egoisutolabs/goxlint.svg)](https://pkg.go.dev/github.com/egoisutolabs/goxlint)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-goxlint is an engine to build your own Go linter.
+goxlint is an engine for building your own Go linter. You write the rules that
+only your codebase has, in Go, against an API shaped like oxlint's and
+ESLint's. goxlint does the rest: loading, the AST walk, configuration, fixes,
+suppressions, output, and a test harness.
 
-Write the rules that are specific to your project, in Go, in a few lines. Use
-them to keep the conventions of your team, and to give coding agents rules
-that their code must pass.
+The rules a team cares about most are usually its own: which package may read
+the clock, which logger handlers use, who may call `charge()`. They live in
+review comments and in AGENTS.md, and people and coding agents follow them
+until they don't. A linter doesn't forget, and it says the same thing every
+time.
 
-```text
-  × acme(no-println): Do not write to stdout with `fmt.Println`.
-   ╭─[server/handler.go:11:3]
-10 │     if err != nil {
-11 │         fmt.Println(err)
-   ·         ────────────────
-12 │         http.Error(w, "not found", http.StatusNotFound)
-   ╰────
-  help: Use the request logger.
-
-Found 0 warnings and 1 error.
-Finished in 175ms on 1 file with 1 rule using 8 threads (typed mode).
-```
-
-> **Status: v0.0.2, early release.** The API of the `goxlint`, `cli`,
-> `goxlinttest`, and `goxlintanalysis` packages can change before v1.0.0. Read the
-> release notes before you update.
->
-> goxlint was named goose-lint in v0.0.1. Change imports from
-> `github.com/egoisutolabs/goose-lint` to `github.com/egoisutolabs/goxlint`.
-
-You write rules in Go. goxlint loads the code, runs your rules, and shows the
-results. goxlint also gives configuration, automatic fixes, suppression comments,
-and a test harness for rules. You do not write this infrastructure yourself.
-
-The rule API is similar to the [oxlint](https://oxc.rs/docs/guide/usage/linter)
-and ESLint rule API. A rule registers a function for each AST node type that it
-examines. When the rule finds a problem, it calls `ctx.Report`.
+## A rule
 
 ```go
-var NoFoo = &goxlint.Rule{
+var NoWallClock = &goxlint.Rule{
 	Meta: goxlint.Meta{
-		Name:     "no-foo",
-		Category: goxlint.Suspicious,
-		Messages: map[string]string{"foo": "Do not use `{{name}}`."},
-	},
-	Create: func(ctx *goxlint.Context) goxlint.Visitor {
-		return goxlint.Visit(
-			goxlint.On(func(id *ast.Ident) {
-				if id.Name == "foo" {
-					ctx.Report(goxlint.Diagnostic{Node: id, MessageID: "foo", Data: goxlint.Data{"name": id.Name}})
-				}
-			}),
-		)
-	},
-}
-```
-
-## Why goxlint
-
-The standard way to write a Go check is
-[`go/analysis`](https://pkg.go.dev/golang.org/x/tools/go/analysis). It is a good
-API for one check. But a linter needs more than checks: configuration,
-suppression comments, fixes, output formats, and tests. With `go/analysis`, you
-write these parts yourself, or you build a custom golangci-lint binary.
-
-goxlint gives you these parts. You write only the rules.
-
-The same rule, in each API:
-
-<table>
-<tr><th>go/analysis</th><th>goxlint</th></tr>
-<tr><td>
-
-```go
-var Analyzer = &analysis.Analyzer{
-	Name:     "noprintln",
-	Doc:      "reports calls to fmt.Println",
-	Requires: []*analysis.Analyzer{inspect.Analyzer},
-	Run: func(pass *analysis.Pass) (any, error) {
-		insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-		insp.Preorder([]ast.Node{(*ast.CallExpr)(nil)}, func(n ast.Node) {
-			call := n.(*ast.CallExpr)
-			fn, ok := typeutil.Callee(pass.TypesInfo, call).(*types.Func)
-			if ok && fn.Pkg() != nil &&
-				fn.Pkg().Path() == "fmt" && fn.Name() == "Println" {
-				pass.Reportf(call.Pos(), "do not use fmt.Println")
-			}
-		})
-		return nil, nil
-	},
-}
-```
-
-</td><td>
-
-```go
-var NoPrintln = &goxlint.Rule{
-	Meta: goxlint.Meta{
-		Name:       "no-println",
+		Name:       "no-wall-clock",
 		Category:   goxlint.Restriction,
 		NeedsTypes: true,
-		Messages: map[string]string{
-			"println": "Do not use `fmt.Println`.",
-		},
+		Messages:   map[string]string{"now": "`time.Now` reads the wall clock. Tests cannot control it."},
 	},
 	Create: func(ctx *goxlint.Context) goxlint.Visitor {
-		return goxlint.Visit(
-			goxlint.On(func(call *ast.CallExpr) {
-				if ctx.IsPkgFunc(call, "fmt", "Println") {
-					ctx.Report(goxlint.Diagnostic{
-						Node: call, MessageID: "println",
-					})
-				}
-			}),
-		)
+		if ctx.Pkg.Name() == "clock" {
+			return nil
+		}
+		return goxlint.Visit(goxlint.On(func(call *ast.CallExpr) {
+			if ctx.IsPkgFunc(call, "time", "Now") {
+				ctx.Report(goxlint.Diagnostic{Node: call, MessageID: "now", Help: "Take a clock.Clock and call its Now method."})
+			}
+		}))
 	},
 }
 ```
 
-</td></tr>
-</table>
+Your linter is a Go program that lists its plugins:
 
-The rules are almost the same size. The difference is what you get around the
-rule:
-
-| | `go/analysis` with `singlechecker` | goxlint |
-| --- | --- | --- |
-| Configuration file | No. Flags only. | `.goxlintrc.json`: severities, options, ignore patterns, per-file overrides. |
-| Severities | No. | `off`, `warn`, `error`, for each rule and category. |
-| Suppression comments | No. | `//goxlint:ignore` for a line or a file, with unused-suppression reports. |
-| Fixes | Suggested fixes, applied with `-fix`. | Fixes with three levels: `safe`, `suggestion`, `dangerous`. |
-| Output | Text or JSON. | Code frames, `unix`, `json`, and GitHub annotations. |
-| Rule tests | `analysistest`: a `testdata` directory with `// want` comments. | `goxlinttest`: code samples inline in the test. |
-| Speed without types | Every run type-checks. | Syntax-only rules run without type-checking. |
-| Package rules | Yes. | Yes. |
-
-Use [`goxlintanalysis`](docs/go-analysis.md) to run the same rules with
-`go/analysis` drivers, such as `go vet -vettool`, `multichecker`, and a
-golangci-lint module plugin. The adapter keeps suppression comments and
-converts safe and suggestion fixes. The host controls configuration and
-output. Editor use requires a host that registers the analyzers; the adapter
-does not add them to stock gopls.
-
-## Features
-
-| Feature             | Description                                                                                           |
-| ------------------- | ----------------------------------------------------------------------------------------------------- |
-| Visitor rules       | A rule registers handlers for AST node types. All rules share one walk of each file.                  |
-| Package rules       | A rule can also examine all files of a package together.                                              |
-| Type information    | A rule can request `go/types` data. goxlint loads types only when a rule needs them.                  |
-| Configuration       | A `.goxlintrc.json` file sets severities, rule options, ignore patterns, and per-file overrides.      |
-| Fixes               | A rule can attach a fix. Fixes have three levels: safe, suggestion, and dangerous.                    |
-| Suppressions        | `//goxlint:ignore` comments disable a rule for a line or a file. goxlint reports unused suppressions. |
-| Output              | Code frames for people. Also `unix`, `json`, `github`, and `sarif` for tools and CI.                   |
-| Rule tests          | The `goxlinttest` package tests file and package rules with valid and invalid code samples.           |
-| Stdin buffers       | `--stdin-filename` lints unsaved source. Fix flags write the resulting source to stdout.             |
-| Rule timing         | `--timing` shows the 10 slowest rules and load time on stderr.                                       |
-| go/analysis adapter | Run rules with existing analysis drivers. See [the adapter guide](docs/go-analysis.md).               |
-
-## Quick start
-
-goxlint is a library. You make a small `main` package that registers your
-plugins, and that program is your linter.
-
-1. Add goxlint to your module:
-
-    ```sh
-    go get github.com/egoisutolabs/goxlint
-    ```
-
-2. Make a plugin and the command:
-
-    ```go
-    // tools/lint/main.go
-    package main
-
-    import (
-    	"github.com/egoisutolabs/goxlint/cli"
-    	"github.com/egoisutolabs/goxlint"
-    )
-
-    var Plugin = goxlint.Plugin{Name: "acme", Rules: []*goxlint.Rule{NoFoo}}
-
-    func main() { cli.Main(Plugin) }
-    ```
-
-3. Run your linter:
-
-    ```sh
-    go run ./tools/lint ./...
-    ```
-
-For the full procedure, read [Getting started](docs/getting-started.md).
-
-## Example linter
-
-The [`examples/goxlint`](examples/goxlint/README.md) directory has a complete linter
-that is built with goxlint. It has two example plugins. Use them as a reference
-when you write your own rules.
-
-```sh
-go run ./examples/goxlint rules
-go run ./examples/goxlint ./...
+```go
+func main() { cli.Main(goxlint.Plugin{Name: "acme", Rules: []*goxlint.Rule{NoWallClock}}) }
 ```
 
-## Documentation
+```text
+  × acme(no-wall-clock): `time.Now` reads the wall clock. Tests cannot control it.
+   ╭─[billing/invoice.go:14:39]
+13 │ func NewInvoice(total int) Invoice {
+14 │     return Invoice{Total: total, Issued: time.Now()}
+   ·                                          ──────────
+15 │ }
+   ╰────
+  help: Take a clock.Clock and call its Now method.
 
-| Document                                   | Contents                                                           |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| [Getting started](docs/getting-started.md) | Make a linter, write a rule, and run it.                           |
-| [Command line](docs/cli.md)                | Commands, flags, output formats, and exit codes.                   |
-| [Configuration](docs/configuration.md)     | The `.goxlintrc.json` file.                                          |
-| [Writing rules](docs/writing-rules.md)     | The rule API: metadata, visitors, the context, and reports.        |
-| [Package rules](docs/package-rules.md)     | Rules that examine all files of a package.                         |
-| [Fixes](docs/fixes.md)                     | Fix levels and how goxlint applies fixes.                            |
-| [Suppressions](docs/suppressions.md)       | `//goxlint:ignore` comments and unused-suppression reports.          |
-| [Testing rules](docs/testing-rules.md)     | The `goxlinttest` package.                                           |
-| [go/analysis adapter](docs/go-analysis.md) | Use rules with go vet, multichecker, and golangci-lint. |
-| [How goxlint works](docs/how-goxlint-works.md) | Loading, the walk, the package phase, and the order of operations. |
-
-## Requirements
-
-- Go 1.26 or later.
-
-## Development
-
-```sh
-go test -race ./...
-go vet ./...
+Found 0 warnings and 1 error.
 ```
 
-To report a problem or send a change, read [Contributing](CONTRIBUTING.md).
+To see it on your own code, run the example linter:
 
-## License
+```sh
+go run github.com/egoisutolabs/goxlint/examples/goxlint@latest init
+go run github.com/egoisutolabs/goxlint/examples/goxlint@latest ./...
+```
 
-goxlint is available under the [MIT License](LICENSE).
+Then write your first rule with [Getting started](docs/getting-started.md).
+
+## What goxlint does well
+
+**One walk for every rule.** Rules don't traverse the AST. They register
+handlers for the node types they care about, and the engine walks each file
+once and dispatches by type. Handlers run only for the node types they asked
+for, and a file with no handlers is not walked at all. Adding a rule adds
+handlers, not traversals.
+
+**Fixes you can run without reading every diff.** Each fix declares how safe it
+is: `safe`, `suggestion`, or `dangerous`, and each level has its own flag.
+goxlint applies fixes in passes, so one fix can build on another, up to ten
+passes. An edit that overlaps an earlier one waits for the next pass. Every
+batch is parsed before the file is written, so a broken fix is rejected, not
+saved. A file that was `gofmt`-clean stays `gofmt`-clean, and a file that was
+not is left with only the rule's edits. A package that did not load cleanly
+gets no fixes at all.
+
+**Suppressions that stay honest.** `//goxlint:ignore <rule> <reason>` needs a
+reason. goxlint reports a suppression that no longer suppresses anything, or
+that repeats an earlier one. A suppression for a rule that is turned off in
+this run is kept, so an exception for an opt-in rule survives the runs that
+skip it.
+
+**Failures stay where they happen.** A rule that panics, or reports a position
+outside its file, becomes an internal-error diagnostic for that rule, and the
+other rules keep reporting. A package that fails to load marks its own files,
+and the files of packages that import it, as incomplete. Everything else gets
+normal results.
+
+**Rules that see the whole package.** `AnalyzePackage` gets every file of a
+package at once, for problems that cross files. A file where the rule is
+turned off still counts as evidence. A diagnostic can point at related code in
+another file, and each related position is checked against the exact files
+that were loaded for this run.
+
+**Positions you can trust.** goxlint reports physical positions and ignores
+`//line` directives. SARIF output converts Go's byte columns to Unicode code
+points, as the format requires.
+
+**Rules are code, so they get tests.** `goxlinttest` works like ESLint's
+`RuleTester`: inline samples that must stay quiet and samples that must report.
+Every sample is type-checked, so a case that does not compile fails instead of
+passing by accident. `RunPackage` tests cross-file rules, including their
+related locations.
+
+**It runs where the code is.**
+- Output for people (code frames) and for tools: `unix`, `json`, `github` annotations, and `sarif` for code scanning.
+- `--stdin-filename` lints an unsaved buffer. In typed mode the buffer replaces the file on disk through a `go/packages` overlay. With a fix flag, it writes the fixed source to stdout. This is the hook for editors and coding agents.
+- The [go/analysis adapter](docs/go-analysis.md) runs the same rules under `go vet -vettool`, `multichecker`, and golangci-lint module plugins.
+
+goxlint depends only on `golang.org/x/tools`, and it lints itself in CI on
+Linux, macOS, and Windows.
+
+## When not to use goxlint
+
+- **You want a large set of ready-made checks.** goxlint ships no rule set. The
+  plugins in [`examples/goxlint`](examples/goxlint/README.md) show the API, and
+  they are not a product. For general Go checks, staticcheck is excellent.
+- **You need data-flow analysis.** Rules see the syntax tree and `go/types`, not
+  how values move through a function. A rule like "every path closes the rows"
+  is hard to write today ([#34](https://github.com/egoisutolabs/goxlint/issues/34)).
+- **You want results in your editor as you type.** There is no language server
+  yet ([#15](https://github.com/egoisutolabs/goxlint/issues/15)). The pieces it
+  needs, such as stdin overlays and related locations, exist.
+- **You lint a very large repository on every keystroke.** There is no result
+  cache. Each run loads and lints everything again, and in typed mode most of
+  the time goes to loading packages. We have no benchmarks yet
+  ([#25](https://github.com/egoisutolabs/goxlint/issues/25)), so we make no
+  speed claims.
+- **You need a stable API today.** goxlint is v0.x. The rule API can still
+  change before v1.0.0, and each release says what changed.
+
+## Status
+
+The current release is [v0.1.0](https://github.com/egoisutolabs/goxlint/releases/tag/v0.1.0).
+goxlint needs Go 1.26 or later. Before v0.0.2 the module was named `goose-lint`.
+
+[Documentation](docs/README.md) ·
+[Discussions](https://github.com/egoisutolabs/goxlint/discussions) ·
+[Contributing](CONTRIBUTING.md) ·
+[Security](SECURITY.md) ·
+[MIT License](LICENSE)

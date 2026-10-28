@@ -3,7 +3,7 @@
 Thank you for your help. This document tells you how to report problems, how
 to set up the project, and how to send a change.
 
-The documents in this repository use ASD-STE100 Simplified Technical English.
+The documents in `docs/` use ASD-STE100 Simplified Technical English.
 Read [Style of the documents](#style-of-the-documents).
 
 All contributors must obey the [code of conduct](CODE_OF_CONDUCT.md).
@@ -40,6 +40,24 @@ feature solves, not only the solution. We can then agree on the design before
 you start.
 
 Small corrections, for example errors in the documents, do not need an issue.
+
+## Work on an issue
+
+1. Find an issue that you want to work on. Issues with the label
+   `good first issue` are small and have clear acceptance criteria.
+2. Write a comment on the issue to ask for it.
+3. Wait until a maintainer assigns the issue to you. Then start the work.
+
+Do not start work on an issue that is assigned to a different person. We can
+close a pull request for an issue that is not assigned to its author.
+
+If an assigned issue has no pull request and no update for 14 days, we can
+remove the assignment. Write a comment if you need more time.
+
+Issues with the label `needs-demand` are not open for work. We wait until a
+user needs the feature.
+
+Small corrections do not need an issue or an assignment.
 
 ## Set up the project
 
@@ -150,8 +168,10 @@ three systems, as set in `.gitattributes`.
 
 ## Style of the documents
 
-Write the documents in `docs/` and `README.md` in ASD-STE100 Simplified
-Technical English:
+Write the documents in `docs/` in ASD-STE100 Simplified Technical English.
+`README.md` is the exception: it uses plain technical English.
+
+For the documents in `docs/`:
 
 - Write short sentences. Write one instruction in each sentence.
 - Use the active voice.

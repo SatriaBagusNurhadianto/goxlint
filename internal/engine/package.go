@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/types"
 	"path/filepath"
 	"slices"
@@ -19,6 +20,16 @@ func LintAll(files []File, rulesFor func(filename string) []ConfiguredRule, opts
 	rules := make([][]ConfiguredRule, len(files))
 	fileOpts := make([]LintOptions, len(files))
 	groups := packageGroups(files, opts.SinglePackage)
+	// A FileSet can also contain dependencies, excluded files, or old parses.
+	// Allow only the actual token files loaded for this package, not just names.
+	packageFiles := make([]map[*token.File]File, len(files))
+	for _, group := range groups {
+		members := make(map[*token.File]File, len(group))
+		for _, i := range group {
+			members[files[i].Fset.File(files[i].AST.FileStart)] = files[i]
+			packageFiles[i] = members
+		}
+	}
 	var timings []map[string]time.Duration
 	if opts.Timing {
 		timings = make([]map[string]time.Duration, len(files)+len(groups))
@@ -30,7 +41,7 @@ func LintAll(files []File, rulesFor func(filename string) []ConfiguredRule, opts
 			timings[i] = measured
 		}
 		rules[i] = rulesFor(files[i].Filename)
-		out[i], fileOpts[i] = lintFile(files[i], rules[i], opts, measured)
+		out[i], fileOpts[i] = lintFile(files[i], rules[i], opts, measured, packageFiles[i])
 	})
 	parallel(len(groups), func(i int) {
 		var measured map[string]time.Duration
@@ -38,7 +49,7 @@ func LintAll(files []File, rulesFor func(filename string) []ConfiguredRule, opts
 			measured = make(map[string]time.Duration)
 			timings[len(files)+i] = measured
 		}
-		lintPackage(files, groups[i], rules, out, fileOpts, measured)
+		lintPackage(files, groups[i], rules, out, fileOpts, measured, packageFiles[groups[i][0]])
 	})
 	parallel(len(files), func(i int) {
 		out[i] = finish(files[i], out[i], rules[i], fileOpts[i])
@@ -80,7 +91,7 @@ func packageGroups(files []File, singlePackage bool) [][]int {
 	return groups
 }
 
-func lintPackage(files []File, group []int, rules [][]ConfiguredRule, out [][]Diagnostic, opts []LintOptions, timings map[string]time.Duration) {
+func lintPackage(files []File, group []int, rules [][]ConfiguredRule, out [][]Diagnostic, opts []LintOptions, timings map[string]time.Duration, packageFiles map[*token.File]File) {
 	byID := map[string]ConfiguredRule{}
 	var ids []string
 	for _, i := range group {
@@ -129,7 +140,7 @@ func lintPackage(files []File, group []int, rules [][]ConfiguredRule, out [][]Di
 			}
 			report := func(d goxlint.Diagnostic) {
 				if configured.Severity != Off {
-					pending[j] = append(pending[j], resolve(f, f.Fset.File(f.AST.FileStart), &configured, d))
+					pending[j] = append(pending[j], resolve(f, f.Fset.File(f.AST.FileStart), &configured, d, packageFiles))
 				}
 			}
 			ctx := goxlint.NewContext(cr.Rule, id, f.Fset, f.AST, f.Filename, f.Source, pkg, info, configured.Options, &stack, report)

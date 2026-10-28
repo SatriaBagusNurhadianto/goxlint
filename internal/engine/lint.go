@@ -54,8 +54,16 @@ type Diagnostic struct {
 	End      token.Position
 	Message  string
 	Help     string
+	Related  []Related
 	Fix      *Fix
 	internal bool // rule failures make unused-suppression analysis unreliable
+}
+
+// Related is a validated supporting location in a loaded package file.
+type Related struct {
+	Filename   string
+	Start, End token.Position
+	Message    string
 }
 
 // IsInternalError distinguishes rule failures from ordinary lint findings.
@@ -118,7 +126,7 @@ func LintFile(f File, rules []ConfiguredRule, opts LintOptions) []Diagnostic {
 }
 
 // lintFile collects raw diagnostics. Suppressions run only after package analysis.
-func lintFile(f File, rules []ConfiguredRule, opts LintOptions, timings map[string]time.Duration) ([]Diagnostic, LintOptions) {
+func lintFile(f File, rules []ConfiguredRule, opts LintOptions, timings map[string]time.Duration, packageFiles map[*token.File]File) ([]Diagnostic, LintOptions) {
 	var (
 		diags   []Diagnostic
 		stack   []ast.Node
@@ -150,7 +158,7 @@ func lintFile(f File, rules []ConfiguredRule, opts LintOptions, timings map[stri
 			pkg, info = f.Pkg, f.Info
 		}
 		report := func(d goxlint.Diagnostic) {
-			diags = append(diags, resolve(f, tokFile, cr, d))
+			diags = append(diags, resolve(f, tokFile, cr, d, packageFiles))
 		}
 		ctx := goxlint.NewContext(cr.Rule, cr.ID, f.Fset, f.AST, f.Filename, f.Source, pkg, info, cr.Options, &stack, report)
 		var start time.Time
@@ -240,7 +248,7 @@ func create(cr *ConfiguredRule, ctx *goxlint.Context) (v goxlint.Visitor, err er
 	return cr.Rule.Create(ctx), nil
 }
 
-func resolve(f File, tf *token.File, cr *ConfiguredRule, d goxlint.Diagnostic) Diagnostic {
+func resolve(f File, tf *token.File, cr *ConfiguredRule, d goxlint.Diagnostic, packageFiles map[*token.File]File) Diagnostic {
 	pos, end := d.Pos, d.End
 	if d.Node != nil {
 		pos, end = d.Node.Pos(), d.Node.End()
@@ -263,6 +271,13 @@ func resolve(f File, tf *token.File, cr *ConfiguredRule, d goxlint.Diagnostic) D
 		Help:    d.Help,
 	}
 	out.Start.Filename, out.End.Filename = f.Filename, f.Filename
+	for _, related := range d.Related {
+		location, err := resolveRelated(f.Fset, related, packageFiles)
+		if err != nil {
+			return internalError(f, cr, err)
+		}
+		out.Related = append(out.Related, location)
+	}
 	if d.Fix != nil {
 		fix := &Fix{Kind: d.Fix.Kind, Message: d.Fix.Message}
 		for _, e := range d.Fix.Edits {

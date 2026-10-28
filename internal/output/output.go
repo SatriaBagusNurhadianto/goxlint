@@ -4,6 +4,7 @@ package output
 import (
 	"encoding/json"
 	"fmt"
+	"go/token"
 	"io"
 	"path/filepath"
 	"slices"
@@ -64,17 +65,26 @@ func (p *Printer) Print(diags []engine.Diagnostic) error {
 				level, p.path(d.Filename), d.Start.Line, d.End.Line, d.Start.Column, d.End.Column, d.RuleID, d.Message)
 		}
 	case "json":
-		type jsonDiag struct {
-			Rule      string `json:"rule"`
-			Severity  string `json:"severity"`
+		type jsonRelated struct {
 			File      string `json:"file"`
 			Line      int    `json:"line"`
 			Column    int    `json:"column"`
 			EndLine   int    `json:"endLine"`
 			EndColumn int    `json:"endColumn"`
 			Message   string `json:"message"`
-			Help      string `json:"help,omitempty"`
-			Fix       string `json:"fix,omitempty"`
+		}
+		type jsonDiag struct {
+			Rule      string        `json:"rule"`
+			Severity  string        `json:"severity"`
+			File      string        `json:"file"`
+			Line      int           `json:"line"`
+			Column    int           `json:"column"`
+			EndLine   int           `json:"endLine"`
+			EndColumn int           `json:"endColumn"`
+			Message   string        `json:"message"`
+			Help      string        `json:"help,omitempty"`
+			Fix       string        `json:"fix,omitempty"`
+			Related   []jsonRelated `json:"related,omitempty"`
 		}
 		out := make([]jsonDiag, 0, len(diags))
 		for _, d := range diags {
@@ -82,6 +92,12 @@ func (p *Printer) Print(diags []engine.Diagnostic) error {
 				Rule: d.RuleID, Severity: d.Severity.String(), File: p.path(d.Filename),
 				Line: d.Start.Line, Column: d.Start.Column, EndLine: d.End.Line, EndColumn: d.End.Column,
 				Message: d.Message, Help: d.Help,
+			}
+			for _, related := range d.Related {
+				j.Related = append(j.Related, jsonRelated{
+					File: p.path(related.Filename), Line: related.Start.Line, Column: related.Start.Column,
+					EndLine: related.End.Line, EndColumn: related.End.Column, Message: related.Message,
+				})
 			}
 			if d.Fix != nil {
 				j.Fix = d.Fix.Kind.String()
@@ -128,30 +144,42 @@ func (p *Printer) frame(d engine.Diagnostic) {
 	plugin, rule, _ := strings.Cut(d.RuleID, "/")
 	fmt.Fprintf(p.W, "\n  %s %s: %s\n", p.c(color, icon), p.c(color, plugin+"("+rule+")"), p.c(bold, d.Message))
 
-	lines := strings.Split(string(p.Sources[d.Filename]), "\n")
-	first := max(d.Start.Line-1, 1)
-	last := min(d.Start.Line+1, len(lines))
-	width := len(fmt.Sprint(last))
-	gutter := strings.Repeat(" ", width+1)
-	fmt.Fprintf(p.W, "%s%s\n", gutter, p.c(dim, fmt.Sprintf("╭─[%s:%d:%d]", p.path(d.Filename), d.Start.Line, d.Start.Column)))
-	for n := first; n <= last && n <= len(lines); n++ {
-		text := lines[n-1]
-		fmt.Fprintf(p.W, "%s %s %s\n", p.c(dim, fmt.Sprintf("%*d", width, n)), p.c(dim, "│"), expandTabs(text))
-		if n != d.Start.Line {
-			continue
+	p.sourceFrame(d.Filename, d.Start, d.End, color)
+	for _, related := range d.Related {
+		message := related.Message
+		if message == "" {
+			message = "related location"
 		}
-		endCol := len(text) + 1
-		if d.End.Line == d.Start.Line {
-			endCol = d.End.Column
-		}
-		pad := displayWidth(text[:min(d.Start.Column-1, len(text))])
-		span := max(displayWidth(text[min(d.Start.Column-1, len(text)):min(endCol-1, len(text))]), 1)
-		fmt.Fprintf(p.W, "%s%s %s%s\n", gutter, p.c(dim, "·"), strings.Repeat(" ", pad), p.c(color, strings.Repeat("─", span)))
+		fmt.Fprintf(p.W, "  %s %s\n", p.c(cyan, "related:"), message)
+		p.sourceFrame(related.Filename, related.Start, related.End, cyan)
 	}
-	fmt.Fprintf(p.W, "%s%s\n", gutter, p.c(dim, "╰────"))
 	if d.Help != "" {
 		fmt.Fprintf(p.W, "  %s %s\n", p.c(cyan, "help:"), d.Help)
 	}
+}
+
+func (p *Printer) sourceFrame(filename string, start, end token.Position, color string) {
+	lines := strings.Split(string(p.Sources[filename]), "\n")
+	first := max(start.Line-1, 1)
+	last := min(start.Line+1, len(lines))
+	width := len(fmt.Sprint(last))
+	gutter := strings.Repeat(" ", width+1)
+	fmt.Fprintf(p.W, "%s%s\n", gutter, p.c(dim, fmt.Sprintf("╭─[%s:%d:%d]", p.path(filename), start.Line, start.Column)))
+	for n := first; n <= last && n <= len(lines); n++ {
+		text := lines[n-1]
+		fmt.Fprintf(p.W, "%s %s %s\n", p.c(dim, fmt.Sprintf("%*d", width, n)), p.c(dim, "│"), expandTabs(text))
+		if n != start.Line {
+			continue
+		}
+		endCol := len(text) + 1
+		if end.Line == start.Line {
+			endCol = end.Column
+		}
+		pad := displayWidth(text[:min(start.Column-1, len(text))])
+		span := max(displayWidth(text[min(start.Column-1, len(text)):min(endCol-1, len(text))]), 1)
+		fmt.Fprintf(p.W, "%s%s %s%s\n", gutter, p.c(dim, "·"), strings.Repeat(" ", pad), p.c(color, strings.Repeat("─", span)))
+	}
+	fmt.Fprintf(p.W, "%s%s\n", gutter, p.c(dim, "╰────"))
 }
 
 const tabWidth = 4

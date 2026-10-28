@@ -202,9 +202,40 @@ Call `ctx.Report` with a `goxlint.Diagnostic`:
 | `Data` | Values for the placeholders in the message template. |
 | `Help` | Optional. A hint that tells the user how to correct the problem. |
 | `Fix` | Optional. Read [Fixes](fixes.md). |
+| `Related` | Optional. Supporting locations in loaded files of the same package. |
 
-The positions must be in the current file. The start must not be after the end.
-If `End` is not set, goxlint uses `Pos`.
+The primary positions must be in the current file. The start must not be
+after the end. If `End` is not set, goxlint uses `Pos`.
+
+### Related locations
+
+Set `Diagnostic.Related` to a list of `goxlint.Related` values. Use this field
+for supporting locations, such as the original function for a copied function.
+Each entry has these fields:
+
+| Field | Description |
+| --- | --- |
+| `Node` | The supporting node. Its positions take precedence over `Pos` and `End`. |
+| `Pos`, `End` | Positions to use when `Node` is not set. An omitted `End` means a point at `Pos`. |
+| `Message` | Optional. Text that labels the supporting location. |
+
+Use positions from the reporting context's `Fset`. Each range must be ordered
+and stay within one loaded file of the same package. The file can be the
+primary file or a different file. A file where the rule is off can supply a
+related location. An ignored file, a generated file, an unloaded file, or a
+file from a different package cannot supply one. Positions from an old parse
+are not valid, even if the file name is the same.
+
+Related locations stay attached to the primary diagnostic, in report order.
+They do not add warnings or errors. Suppressions match only the primary
+location. A suppression at a related location does not suppress the report
+or receive credit in the unused-suppression check. Fixes still apply only to
+the primary file.
+
+If one related range is invalid, goxlint replaces the whole report with an
+internal-error diagnostic. It does not keep the related locations or the fix.
+Other rules continue to run. See the [package rule example](package-rules.md#reports).
+Use `goxlinttest.RelatedError` to [test related locations](testing-rules.md#related-locations).
 
 ### Messages
 
@@ -237,7 +268,9 @@ conditions:
 
 - The rule calls `Report` with an unknown `MessageID`.
 - The rule reports a fix with a level that is more dangerous than `Meta.Fixable`.
-- The diagnostic or a fix edit has positions outside the current file.
+- The primary diagnostic or a fix edit has positions outside the current file.
+- A related location has an invalid range or refers to a file outside the
+  loaded package.
 - A handler or `Create` causes a panic.
 
 An internal error has the severity `error`. Its message starts with

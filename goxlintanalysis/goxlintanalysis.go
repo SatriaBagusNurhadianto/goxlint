@@ -120,6 +120,10 @@ func run(pass *analysis.Pass, plugin, id string, rule *goxlint.Rule, options jso
 		files = append(files, engine.File{Fset: pass.Fset, AST: file, Filename: name, Source: src, Pkg: pass.Pkg, Info: pass.TypesInfo})
 	}
 	configured := []engine.ConfiguredRule{{ID: id, Plugin: plugin, Rule: rule, Severity: engine.Error, Options: options}}
+	tokenFiles := make(map[string]*token.File, len(files))
+	for _, file := range files {
+		tokenFiles[file.Filename] = pass.Fset.File(file.AST.FileStart)
+	}
 	results := engine.LintAll(files, func(string) []engine.ConfiguredRule { return configured }, engine.LintOptions{SinglePackage: true})
 	// Pass functions are not concurrency-safe. Report only after the engine joins
 	// its file workers, and use the same physical token file for every offset.
@@ -131,6 +135,12 @@ func run(pass *analysis.Pass, plugin, id string, rule *goxlint.Rule, options jso
 				message += "\n" + d.Help
 			}
 			report := analysis.Diagnostic{Pos: tf.Pos(d.Start.Offset), End: tf.Pos(d.End.Offset), Message: message, Category: string(rule.Meta.Category)}
+			for _, related := range d.Related {
+				target := tokenFiles[related.Filename]
+				report.Related = append(report.Related, analysis.RelatedInformation{
+					Pos: target.Pos(related.Start.Offset), End: target.Pos(related.End.Offset), Message: related.Message,
+				})
+			}
 			if fix, ok := suggestedFix(tf, d.Fix); ok {
 				report.SuggestedFixes = []analysis.SuggestedFix{fix}
 			}

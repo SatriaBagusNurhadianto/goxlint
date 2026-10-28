@@ -77,7 +77,11 @@ func copied(value int) int {
 ```
 
 With `minStatements: 2`, goxlint reports `copied`, pointing to `existing` in
-`a.go`. The comparison ignores comments, whitespace, optional trailing
+`a.go`. The diagnostic includes the original function name as a related
+location. Code frames, JSON, SARIF, and the go/analysis adapter preserve this
+location. The short reference in the message also works in line-based output.
+
+The comparison ignores comments, whitespace, optional trailing
 punctuation, and names of local bindings. Type information distinguishes
 shadowed variables and preserves the order and identity of parameter uses.
 Import aliases and recursive self references are normalized too.
