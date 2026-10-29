@@ -155,7 +155,7 @@ func (p *Printer) sarifURI(name string) string {
 	}
 	path := filepath.ToSlash(name)
 	uri := url.URL{Path: path}
-	// A path on another Windows volume cannot be relative to Root.
+	// Absolute paths (outside Root, or on another Windows volume) become file: URIs.
 	if filepath.IsAbs(name) {
 		uri.Scheme = "file"
 		if strings.HasPrefix(path, "//") {

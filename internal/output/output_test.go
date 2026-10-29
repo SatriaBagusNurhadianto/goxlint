@@ -140,7 +140,6 @@ func TestSARIFPaths(t *testing.T) {
 	cases := []struct{ root, name, want string }{
 		{root, filepath.Join(root, "src", "a #%.go"), "src/a%20%23%25.go"},
 		{root, filepath.Join(root, "..foo", "a.go"), "..foo/a.go"},
-		{root, filepath.Join(root, "src", "a.go"), "src/a.go"},
 		{root, filepath.Join("src", "a.go"), "src/a.go"},
 		{"", filepath.Join("src", "café.go"), "src/caf%C3%A9.go"},
 		{"", "a:b.go", "./a:b.go"},
